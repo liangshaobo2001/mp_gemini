@@ -1,23 +1,22 @@
 import os
 import re
 import json
+import traceback
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
-from .llm import LanguageModel, create_language_model
-from .tool import ToolRegistry
+from .llm import LanguageModel, GeminiLanguageModel, MockLanguageModel
+from .tool import ToolRegistry, Tool
 from .history import HistoryEntry, SystemPrompt, UserInstruction, LLMResponse, ToolCallResult
 from .logger import Logger
 from .env import AgentEnvironment
-from .llm import MockLanguageModel
 
-# Tools (server/testing provided; fs/todo implemented in Part 2)
-from .tools import server as _server
-from .tools import supertest as _supertest
-from .tools import playwright as _playwright
-from .tools import fs as _fs
-from .tools import todo as _todo
-
+# Import Tools
+from .tools.server import NPMInitTool, NPMStartTool, NPMStopTool, NPMStatusTool, NPMLogsTool
+from .tools.fs import FileCreateTool, FileDeleteTool, FileReadTool, FileEditTool, DirectoryCreateTool, DirectoryDeleteTool, DirectoryListTool, DirectoryTreeTool
+from .tools.todo import TodoAddTool, TodoListTool, TodoCompleteTool, TodoRemoveTool
+from .tools.playwright import PlaywrightInitTool, PlaywrightRunTool
+from .tools.supertest import SupertestInitTool, SupertestRunTool
 
 class Agent:
     working_dir: Path
@@ -41,328 +40,176 @@ class Agent:
         self.logger = None
         self.env = None
 
-    # ---------- Initialization helpers ----------
-
     def initialize_environment(self):
         config_path = self.working_dir / ".waa" / "config.json"
         if not config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
 
-        with open(config_path, "r") as f:
+        with open(config_path, 'r') as f:
             self.config = json.load(f)
 
         self.env = AgentEnvironment(self.working_dir, self.config)
         self.max_turns = self.env.get_config_value("max_turns", 50)
 
     def initialize_llm(self):
-        # prefer explicit mock when requested
-        llm_type = (self.config or {}).get("llm_type", "mock").lower()
-
-        if llm_type == "mock":
-            # 1) config-provided responses
-            cfg_responses = self.config.get("mock_responses") if isinstance(self.config, dict) else None
-            if isinstance(cfg_responses, list) and all(isinstance(x, str) for x in cfg_responses) and cfg_responses:
-                self.llm = MockLanguageModel(responses=cfg_responses)
-                return
-
-            # 2) .waa/mock_responses.json
-            mr_json = self.working_dir / ".waa" / "mock_responses.json"
-            if mr_json.exists():
-                try:
-                    import json as _json
-                    data = _json.loads(mr_json.read_text())
-                    if isinstance(data, list) and all(isinstance(x, str) for x in data) and data:
-                        self.llm = MockLanguageModel(responses=data)
-                        return
-                except Exception:
-                    pass  # fall through to other sources
-
-            # 3) .waa/mock_responses.txt (one response per line)
-            mr_txt = self.working_dir / ".waa" / "mock_responses.txt"
-            if mr_txt.exists():
-                try:
-                    lines = [ln.rstrip("\n") for ln in mr_txt.read_text().splitlines()]
-                    lines = [ln for ln in lines if ln.strip()]
-                    if lines:
-                        self.llm = MockLanguageModel(responses=lines)
-                        return
-                except Exception:
-                    pass
-
-            # default mock if none provided
-            self.llm = MockLanguageModel()
-            return
-
-        # Non-mock: use the factory (handles Gemini etc.)
-        self.llm = create_language_model(self.config)
-
-        # print the name of LM being used.
-        if self.logger:
-            self.logger.log_debug(
-                f"LLM selected: {type(self.llm).__name__} "
-                f"model={getattr(self.llm, 'model', None) or getattr(self.llm, 'model_name', None)} "
-                f"llm_type={(self.config or {}).get('llm_type')}"
-            )
-
-        # optional hard guard so we never silently fall back to mock when llm_type != "mock"
-        if llm_type != "mock" and type(self.llm).__name__ == "MockLanguageModel":
-            raise RuntimeError("Expected a real LLM, but MockLanguageModel was instantiated.")
-
+        llm_type = self.config.get("llm_type", "mock")
+        if llm_type == "gemini":
+            model_name = self.config.get("model", "gemini-1.5-flash") 
+            api_key = self.config.get("api_key", os.getenv("GEMINI_API_KEY"))
+            self.llm = GeminiLanguageModel(model_name=model_name, api_key=api_key)
+        elif llm_type == "mock":
+            responses = self.config.get("mock_responses")
+            self.llm = MockLanguageModel(responses=responses)
+        else:
+            raise ValueError(f"Unknown llm_type: {llm_type}. Use 'gemini' or 'mock'.")
 
     def initialize_logger(self):
         log_path = self.working_dir / ".waa" / "agent.log"
-        # if log_path.exists():
-        #     raise RuntimeError(
-        #         f"Log file already exists: {log_path}. Remove it to start a new run."
-        #     )
-
+        # In a real run, we might want to fail if log exists to ensure clean state
+        # But for development, we can just append or overwrite.
         self.logger = Logger(log_path, self.debug)
         self.logger.log("Agent initialization started")
         self.logger.log(f"Working directory: {self.working_dir}")
-        self.logger.log(f"Debug mode: {self.debug}")
-        self.logger.log(f"Max turns: {self.max_turns}")
 
     def initialize_tool_registry(self):
         self.tool_registry = ToolRegistry()
-
-        # Build all tools first (but don't register yet)
-        all_tool_classes = [
-            # Server tools
-            _server.NPMInitTool,
-            _server.NPMStartTool,
-            _server.NPMStopTool,
-            _server.NPMStatusTool,
-            _server.NPMLogsTool,
-            # Testing tools
-            _supertest.SupertestInitTool,
-            _supertest.SupertestRunTool,
-            _playwright.PlaywrightInitTool,
-            _playwright.PlaywrightRunTool,
-            # FS tools (Part 2)
-            _fs.FileCreateTool,
-            _fs.FileReadTool,
-            _fs.FileEditTool,
-            _fs.FileDeleteTool,
-            _fs.DirMakeTool,
-            _fs.DirRemoveTool,
-            _fs.DirListTool,
-            getattr(_fs, "DirTreeTool", None),  # optional
-            # TODO tools (Part 2)
-            _todo.TodoAddTool,
-            _todo.TodoListTool,
-            _todo.TodoCompleteTool,
-            _todo.TodoRemoveTool,
+        
+        # Instantiate all available tools
+        all_tools = [
+            NPMInitTool(), NPMStartTool(), NPMStopTool(), NPMStatusTool(), NPMLogsTool(),
+            FileCreateTool(), FileDeleteTool(), FileReadTool(), FileEditTool(), 
+            DirectoryCreateTool(), DirectoryDeleteTool(), DirectoryListTool(), DirectoryTreeTool(),
+            TodoAddTool(), TodoListTool(), TodoCompleteTool(), TodoRemoveTool(),
+            PlaywrightInitTool(), PlaywrightRunTool(),
+            SupertestInitTool(), SupertestRunTool()
         ]
 
-        tools_by_name = {}
-        for ToolCls in all_tool_classes:
-            if ToolCls is None:
-                continue
-            t = ToolCls()
-            t.initialize(self.env)
-            tools_by_name[t.name] = t
-
-        # Only register tools that are allowed by config
-        allowed = self.env.get_config_value("allowed_tools", None)
-        if isinstance(allowed, list) and allowed:
-            for name in allowed:
-                if name in tools_by_name:
-                    self.tool_registry.register_tool(tools_by_name[name])
-        else:
-            # If no allowlist specified, register all
-            for t in tools_by_name.values():
-                self.tool_registry.register_tool(t)
-
-
-    # ---------- System/User context ----------
-
-    def _build_system_prompt_text(self) -> str:
-        tools_desc = "\n".join(
-            [f"- {t.name}: {t.description()}" for t in self.tool_registry.list_tools()]
-        )
-        return (
-            "You are WAA, a deterministic web-app coding agent.\n"
-            "Protocols:\n"
-            '<tool_call>{"tool":"TOOL_NAME","arguments":{"arg1":"val"}}</tool_call>\n'
-            "<terminate>\n"
-            "Strategy: (1) Read instruction; (2) Initialize project; (3) Create/edit files; "
-            "(4) Run tests; (5) Iterate on failures; (6) Terminate when done.\n"
-            "Constraints: stay within working directory; never modify protected_files; "
-            "make minimal, explicit edits; include filenames in actions.\n\n"
-            "Available tools:\n"
-            f"{tools_desc}\n"
-        )
+        allowed_tools = self.env.get_config_value("allowed_tools", None)
+        
+        for tool in all_tools:
+            # If allowed_tools is None (default), register everything.
+            # Otherwise, check if tool name is in the allowed list.
+            if allowed_tools is None or tool.name in allowed_tools:
+                tool.initialize(self.env)
+                self.tool_registry.register_tool(tool)
 
     def load_system_prompt(self):
-        text = self._build_system_prompt_text()
-        self.history.append(SystemPrompt(text))
-        if self.logger:
-            self.logger.log_system_prompt(text)
+        tools_desc = "\n".join([f"- {t.name}: {t.description()}" for t in self.tool_registry.list_tools()])
+        
+        prompt = f"""You are WAA (Web-App Agent), an expert full-stack developer.
+Your goal is to build web applications based on user instructions.
+
+AVAILABLE TOOLS:
+{tools_desc}
+
+PROTOCOL:
+1. You must think step-by-step.
+2. To use a tool, you MUST use this format:
+   <tool_call>{{"tool": "tool_name", "arguments": {{"arg": "value"}}}}</tool_call>
+3. Only one tool call per turn. Wait for the result before proceeding.
+4. When the task is complete, output:
+   <terminate>
+
+RULES:
+- Always check if files exist (fs.ls, fs.read) before editing.
+- Create a 'todo' list (todo.add) at the start to track your plan.
+- Use 'npm.init' to setup Node.js projects.
+- Use 'fs.write' to create HTML/CSS/JS files.
+- Always run tests (playwright.run or supertest.run) to verify your work.
+"""
+        system_entry = SystemPrompt(prompt)
+        self.history.append(system_entry)
+        self.logger.log_system_prompt(prompt)
 
     def load_instruction(self):
-        instr_path = self.working_dir / ".waa" / "instruction.md"
-        if not instr_path.exists():
-            raise FileNotFoundError(f"Instruction not found: {instr_path}")
-        content = instr_path.read_text()
-        self.history.append(UserInstruction(content))
-        if self.logger:
-            self.logger.log_user_instruction(content)
-
-    # ---------- Loop plumbing ----------
+        instruction_path = self.working_dir / ".waa" / "instruction.md"
+        if not instruction_path.exists():
+            raise FileNotFoundError("instruction.md not found")
+            
+        content = instruction_path.read_text(encoding='utf-8')
+        user_entry = UserInstruction(content)
+        self.history.append(user_entry)
+        self.logger.log_user_instruction(content)
 
     def initialize(self):
         self.initialize_environment()
         self.initialize_llm()
         self.initialize_logger()
         self.initialize_tool_registry()
+
         self.load_system_prompt()
         self.load_instruction()
 
-    def _history_to_messages(self) -> List[Dict[str, Any]]:
-        msgs: List[Dict[str, Any]] = []
-        for h in self.history:
-            d = h.to_json()
-            msgs.append({"role": d["role"], "content": d["content"]})
-        return msgs
+    def query_llm(self, turn: int):
+        # Convert history to format expected by LLM
+        messages = [{"role": h.role, "content": h.get_content()} for h in self.history]
+        
+        self.logger.log_llm_query(turn, len(messages))
+        response_text = self.llm.generate(messages)
+        
+        response_entry = LLMResponse(response_text)
+        self.history.append(response_entry)
+        self.logger.log_llm_response(turn, response_text)
+        
+        return response_entry
 
-    def query_llm(self, turn: int) -> LLMResponse:
-        messages = self._history_to_messages()
-        if self.logger:
-            self.logger.log_llm_query(turn, messages)
-        resp_text = self.llm.generate(messages)
-
-
-        if self.logger:
-            self.logger.log_debug(f"Raw LLM text: {resp_text!r}")
-
-
-        resp = LLMResponse(resp_text)
-        self.history.append(resp)
-        if self.logger:
-            self.logger.log_llm_response(turn, resp_text)
-        return resp
-
-    def _parse_tool_call(self, text: str) -> Optional[Dict[str, Any]]:
-        m = re.search(r"<tool_call>(.*?)</tool_call>", text, flags=re.DOTALL)
-        if not m:
-            return None
-        inner = m.group(1).strip()
+    def execute_tool(self, tool_call_text: str):
         try:
-            obj = json.loads(inner)
-            if not isinstance(obj, dict) or "tool" not in obj or "arguments" not in obj:
-                raise ValueError("Malformed tool_call JSON")
-            return obj
+            # Extract JSON from <tool_call>... </tool_call>
+            match = re.search(r'<tool_call>(.*?)</tool_call>', tool_call_text, re.DOTALL)
+            if not match:
+                return
+
+            json_str = match.group(1).strip()
+            call_data = json.loads(json_str)
+            
+            tool_name = call_data.get("tool")
+            args = call_data.get("arguments", {})
+
+            self.logger.log_tool_call(tool_name, args)
+
+            try:
+                tool = self.tool_registry.get_tool(tool_name)
+            except KeyError:
+                 result = {"ok": False, "error": f"Tool '{tool_name}' not found."}
+                 self.logger.log_tool_result(tool_name, None, result["error"])
+                 result_entry = ToolCallResult(tool_name, args, None, result["error"])
+                 self.history.append(result_entry)
+                 return
+
+            # Validate and Execute
+            if tool.schema.validate(args):
+                result = tool.execute(args)
+            else:
+                result = {"ok": False, "error": "Invalid arguments"}
+
+            # Log and Append to History
+            self.logger.log_tool_result(tool_name, result.get("data"), result.get("error"))
+            
+            result_entry = ToolCallResult(tool_name, args, result.get("data"), result.get("error"))
+            self.history.append(result_entry)
+
         except Exception as e:
-            self.history.append(
-                ToolCallResult("INVALID", {}, None, f"Invalid tool_call JSON: {e}")
-            )
-            if self.logger:
-                self.logger.log_error(f"Invalid tool_call JSON: {e}")
-            return None
+            error_msg = f"Tool execution failed: {str(e)}\n{traceback.format_exc()}"
+            self.logger.log_error(error_msg)
+            result_entry = ToolCallResult("unknown", {}, None, error_msg)
+            self.history.append(result_entry)
 
-    def execute_tool(self, tool_call: Dict[str, Any]):
-        tool_name = tool_call.get("tool")
-        arguments = tool_call.get("arguments", {})
-
-        # Unknown tool
-        try:
-            tool = self.tool_registry.get_tool(tool_name)
-        except KeyError:
-            res = ToolCallResult(tool_name or "UNKNOWN", arguments, None, f"Unknown tool: {tool_name}")
-            self.history.append(res)
-            if self.logger:
-                self.logger.log_tool_result(tool_name or "UNKNOWN", {
-                    "arguments": arguments,
-                    "result": None,
-                    "error": res.error,
-                })
-            return
-
-        # Validate arguments
-        try:
-            tool.schema.validate(arguments)
-        except Exception as e:
-            res = ToolCallResult(tool_name, arguments, None, f"Argument validation failed: {e}")
-            self.history.append(res)
-            if self.logger:
-                self.logger.log_tool_result(tool_name, {
-                    "arguments": arguments,
-                    "result": None,
-                    "error": res.error,
-                })
-            return
-
-        # Execute
-        try:
-            result = tool.execute(arguments)
-            error = None if result.get("ok") else (result.get("error") or "Unknown tool error")
-        except Exception as e:
-            result = {"ok": False, "data": None, "error": str(e)}
-            error = str(e)
-
-        res = ToolCallResult(tool_name, arguments, result, error)
-        self.history.append(res)
-        if self.logger:
-            self.logger.log_tool_result(tool_name, {
-                "arguments": arguments,
-                "result": result,
-                "error": error,
-            })
-
-    # def run(self):
-    #     # 1) initialize
-    #     self.initialize()
-
-    #     # 2) agentic loop
-    #     for turn in range(1, self.max_turns + 1):
-    #         resp = self.query_llm(turn)
-
-    #         if resp.is_termination():
-    #             if self.logger:
-    #                 self.logger.log_termination(turn, "LLM requested termination")
-    #             break
-
-    #         tool_call = self._parse_tool_call(resp.response)
-    #         if tool_call:
-    #             if self.logger:
-    #                 self.logger.log_tool_call(tool_call.get("tool"), tool_call.get("arguments", {}))
-    #             self.execute_tool(tool_call)
-    #             continue
-
-    #         if self.logger and resp.is_message():
-    #             self.logger.log_debug(f"Assistant message (turn {turn}): {resp.response}")
-    #     else:
-    #         if self.logger:
-    #             self.logger.log_termination(self.max_turns, "Max turns reached without termination")
     def run(self):
-        # 1) initialize
         self.initialize()
-
-        # 2) agentic loop
+        
         for turn in range(1, self.max_turns + 1):
-            resp = self.query_llm(turn)
-
-            # Execute every <tool_call> found in this single response
-            for m in re.finditer(r"<tool_call>(.*?)</tool_call>", resp.response, flags=re.DOTALL):
-                try:
-                    obj = json.loads(m.group(1).strip())
-                    if isinstance(obj, dict) and "tool" in obj and "arguments" in obj:
-                        if self.logger:
-                            self.logger.log_tool_call(obj.get("tool"), obj.get("arguments", {}))
-                        self.execute_tool(obj)
-                except Exception as e:
-                    self.history.append(ToolCallResult("INVALID", {}, None, f"Invalid tool_call JSON: {e}"))
-                    if self.logger:
-                        self.logger.log_error(f"Invalid tool_call JSON: {e}")
-
-            # Only terminate if the *entire* message is exactly "<terminate>"
-            if resp.response.strip() == "<terminate>":
-                if self.logger:
-                    self.logger.log_termination(turn, "LLM requested termination")
+            # 1. Query
+            response_entry = self.query_llm(turn)
+            
+            # 2. Check Termination
+            if response_entry.is_termination():
+                self.logger.log_termination(turn, "LLM requested termination")
                 break
 
-            if self.logger and resp.is_message():
-                self.logger.log_debug(f"Assistant message (turn {turn}): {resp.response}")
+            # 3. Check and Execute Tool
+            if response_entry.is_tool_call():
+                self.execute_tool(response_entry.response)
+
         else:
-            if self.logger:
-                self.logger.log_termination(self.max_turns, "Max turns reached without termination")
+            self.logger.log_termination(self.max_turns, "Max turns reached")

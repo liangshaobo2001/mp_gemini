@@ -1,318 +1,303 @@
-# waa/tools/fs.py
-from __future__ import annotations
-
-import os
-import json
 import shutil
+import os
 from pathlib import Path
 from typing import Dict, Any, List
-from fnmatch import fnmatch
 
 from ..tool import Tool, ToolArgument
 from ..env import AgentEnvironment
 
 
-def _posix_rel(workdir: Path, p: Path) -> str:
-    """
-    Return POSIX-style path of p relative to workdir, or a sentinel if outside.
-    """
-    try:
-        rel = p.resolve().relative_to(workdir.resolve())
-    except Exception:
-        return "__OUTSIDE_WORKDIR__"
-    return rel.as_posix()
-
-
-def _load_config(workdir: Path) -> Dict[str, Any]:
-    cfg_path = workdir / ".waa" / "config.json"
-    try:
-        return json.loads(cfg_path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-class _FSToolBase(Tool):
-    def initialize(self, env: AgentEnvironment):
-        self.env = env
-        self.cwd: Path = env.working_dir
-
-        # Config
-        cfg = _load_config(self.cwd)
-        protected_files = cfg.get("protected_files", []) or []
-        writable_paths = cfg.get("writable_paths", []) or []
-
-        # Normalize to a simple list of POSIX globs/paths (relative to workdir)
-        self.protected_globs: List[str] = list(protected_files)
-        self.writable_globs: List[str] = list(writable_paths)
-
-        # Env overrides
-        # Kill-switch: allow everything (use sparingly for debugging)
-        self.allow_all_writes = os.environ.get("WAA_ALLOW_ALL_WRITES", "0") == "1"
-
-        # Extra allow-list via env (comma-separated globs)
-        extra_allow = os.environ.get("WAA_WRITABLE_GLOBS", "")
-        if extra_allow.strip():
-            self.writable_globs.extend([g.strip() for g in extra_allow.split(",") if g.strip()])
-
-    # Security: resolve to absolute within working dir
-    def _resolve(self, rel: str) -> Path:
-        p = (self.cwd / rel).resolve()
-        root = self.cwd.resolve()
-        # Allow exactly the root dir, or any sub-path under it
-        if str(p) != str(root) and not str(p).startswith(str(root) + os.sep):
-            raise ValueError("Path outside working directory")
-        return p
-
-    def _is_protected(self, p: Path) -> bool:
-        """
-        Decide whether a path is blocked by protection rules.
-
-        Rules:
-          1) If kill-switch WAA_ALLOW_ALL_WRITES=1 -> allow.
-          2) If relpath matches any allow glob (config 'writable_paths' or env WAA_WRITABLE_GLOBS) -> allow.
-          3) If relpath matches any protected glob -> block.
-          4) Otherwise -> allow.
-        """
-        if self.allow_all_writes:
-            return False
-
-        rel = _posix_rel(self.cwd, p)
-        if rel == "__OUTSIDE_WORKDIR__":
-            # Outside workdir -> block
-            return True
-
-        # Allow-list wins
-        for pat in self.writable_globs:
-            if fnmatch(rel, pat):
-                return False
-
-        # Block-list
-        for pat in self.protected_globs:
-            if fnmatch(rel, pat):
-                return True
-
-        return False
-
-
-# ---------- fs.write ----------
-class FileCreateTool(_FSToolBase):
+class FileCreateTool(Tool):
     def __init__(self):
         super().__init__("fs.write")
-        self.schema.register_argument(ToolArgument("path", "Path of file to write (relative to working dir)", True, str))
-        self.schema.register_argument(ToolArgument("content", "File content to write", True, str))
+        self.schema.register_argument(ToolArgument("path", "Relative path to the file", True, str))
+        self.schema.register_argument(ToolArgument("content", "Content to write to the file", True, str))
+
+    def initialize(self, env: AgentEnvironment):
+        self.env = env
 
     def description(self) -> str:
-        return "Create or overwrite a file. Args: path:str, content:str. Creates parent dirs."
+        return "`fs.write` - Create or overwrite a file with the given content. Automatically creates parent directories."
 
     def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            path = self._resolve(input["path"])
-            if self._is_protected(path):
-                return {"ok": False, "data": None, "error": "Attempt to modify protected file"}
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(input["content"], encoding="utf-8")
-            return {"ok": True, "data": {"path": str(path)}, "error": None}
+            rel_path = input["path"]
+            content = input["content"]
+            
+            # Security Checks
+            working_dir = self.env.get_working_dir()
+            full_path = (working_dir / rel_path).resolve()
+            
+            if not str(full_path).startswith(str(working_dir.resolve())):
+                return {"ok": False, "data": None, "error": f"Access denied: Path {rel_path} is outside working directory."}
+            
+            protected = self.env.get_config_value("protected_files", [])
+            if rel_path in protected:
+                return {"ok": False, "data": None, "error": f"Access denied: {rel_path} is a protected file."}
+
+            # Operation
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(full_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+
+            return {"ok": True, "data": {"path": rel_path, "size": len(content)}, "error": None}
         except Exception as e:
             return {"ok": False, "data": None, "error": str(e)}
 
 
-# ---------- fs.read ----------
-class FileReadTool(_FSToolBase):
-    def __init__(self):
-        super().__init__("fs.read")
-        self.schema.register_argument(ToolArgument("path", "Path of file to read", True, str))
-
-    def description(self) -> str:
-        return "Read a file. Args: path:str. Returns content, size_bytes, line_count."
-
-    def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
-        try:
-            path = self._resolve(input["path"])
-            if not path.exists() or not path.is_file():
-                return {"ok": False, "data": None, "error": "File not found"}
-            content = path.read_text(encoding="utf-8")
-            size = path.stat().st_size
-            # Count lines: number of '\n' + possibly the last line if not ending with \n
-            lines = content.count("\n") + (0 if content.endswith("\n") or content == "" else 1)
-            return {
-                "ok": True,
-                "data": {"content": content, "size_bytes": int(size), "line_count": int(lines)},
-                "error": None,
-            }
-        except Exception as e:
-            return {"ok": False, "data": None, "error": str(e)}
-
-
-# ---------- fs.edit ----------
-class FileEditTool(_FSToolBase):
-    def __init__(self):
-        super().__init__("fs.edit")
-        self.schema.register_argument(ToolArgument("path", "Path of file to edit", True, str))
-        self.schema.register_argument(ToolArgument("old_text", "First occurrence to replace", True, str))
-        self.schema.register_argument(ToolArgument("new_text", "Replacement text", True, str))
-
-    def description(self) -> str:
-        return "Edit a file by replacing the FIRST occurrence of old_text with new_text. Args: path, old_text, new_text."
-
-    def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
-        try:
-            path = self._resolve(input["path"])
-            if self._is_protected(path):
-                return {"ok": False, "data": None, "error": "Attempt to modify protected file"}
-            if not path.exists() or not path.is_file():
-                return {"ok": False, "data": None, "error": "File not found"}
-
-            s = path.read_text(encoding="utf-8")
-            old = input["old_text"]
-            new = input["new_text"]
-            idx = s.find(old)
-            if idx < 0:
-                return {"ok": False, "data": None, "error": "old_text not found"}
-            new_s = s[:idx] + new + s[idx + len(old) :]
-            path.write_text(new_s, encoding="utf-8")
-            return {"ok": True, "data": {"path": str(path)}, "error": None}
-        except Exception as e:
-            return {"ok": False, "data": None, "error": str(e)}
-
-
-# ---------- fs.delete ----------
-class FileDeleteTool(_FSToolBase):
+class FileDeleteTool(Tool):
     def __init__(self):
         super().__init__("fs.delete")
-        self.schema.register_argument(ToolArgument("path", "Path of file to delete", True, str))
+        self.schema.register_argument(ToolArgument("path", "Relative path to the file", True, str))
+
+    def initialize(self, env: AgentEnvironment):
+        self.env = env
 
     def description(self) -> str:
-        return "Delete a file. Args: path:str."
+        return "`fs.delete` - Delete a file permanently."
 
     def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            path = self._resolve(input["path"])
-            if self._is_protected(path):
-                return {"ok": False, "data": None, "error": "Attempt to modify protected file"}
-            if not path.exists() or not path.is_file():
-                return {"ok": False, "data": None, "error": "File not found"}
-            path.unlink()
-            return {"ok": True, "data": {"path": str(path)}, "error": None}
+            rel_path = input["path"]
+            
+            working_dir = self.env.get_working_dir()
+            full_path = (working_dir / rel_path).resolve()
+
+            if not str(full_path).startswith(str(working_dir.resolve())):
+                return {"ok": False, "data": None, "error": "Access denied: Path outside working directory."}
+
+            protected = self.env.get_config_value("protected_files", [])
+            if rel_path in protected:
+                return {"ok": False, "data": None, "error": f"Access denied: {rel_path} is a protected file."}
+
+            if not full_path.exists() or not full_path.is_file():
+                return {"ok": False, "data": None, "error": f"File not found: {rel_path}"}
+
+            os.remove(full_path)
+            return {"ok": True, "data": {"message": f"Deleted {rel_path}"}, "error": None}
         except Exception as e:
             return {"ok": False, "data": None, "error": str(e)}
 
 
-# ---------- fs.mkdir ----------
-class DirMakeTool(_FSToolBase):
+class FileReadTool(Tool):
+    def __init__(self):
+        super().__init__("fs.read")
+        self.schema.register_argument(ToolArgument("path", "Relative path to the file", True, str))
+
+    def initialize(self, env: AgentEnvironment):
+        self.env = env
+
+    def description(self) -> str:
+        return "`fs.read` - Read the content of a file."
+
+    def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            rel_path = input["path"]
+            working_dir = self.env.get_working_dir()
+            full_path = (working_dir / rel_path).resolve()
+
+            if not str(full_path).startswith(str(working_dir.resolve())):
+                return {"ok": False, "data": None, "error": "Access denied: Path outside working directory."}
+            
+            if not full_path.exists():
+                return {"ok": False, "data": None, "error": f"File not found: {rel_path}"}
+
+            content = full_path.read_text(encoding='utf-8')
+            return {"ok": True, "data": {"content": content, "size": len(content)}, "error": None}
+        except Exception as e:
+            return {"ok": False, "data": None, "error": str(e)}
+
+
+class FileEditTool(Tool):
+    def __init__(self):
+        super().__init__("fs.edit")
+        self.schema.register_argument(ToolArgument("path", "Relative path", True, str))
+        self.schema.register_argument(ToolArgument("old_text", "Exact text segment to replace", True, str))
+        self.schema.register_argument(ToolArgument("new_text", "New text to insert", True, str))
+
+    def initialize(self, env: AgentEnvironment):
+        self.env = env
+
+    def description(self) -> str:
+        return "`fs.edit` - Replace the first occurrence of `old_text` with `new_text` in a file."
+
+    def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            rel_path = input["path"]
+            old_text = input["old_text"]
+            new_text = input["new_text"]
+
+            working_dir = self.env.get_working_dir()
+            full_path = (working_dir / rel_path).resolve()
+            
+            # Security Checks
+            if not str(full_path).startswith(str(working_dir.resolve())):
+                return {"ok": False, "data": None, "error": "Access denied: Path outside working directory."}
+            
+            protected = self.env.get_config_value("protected_files", [])
+            if rel_path in protected:
+                return {"ok": False, "data": None, "error": f"Access denied: {rel_path} is a protected file."}
+
+            if not full_path.exists():
+                return {"ok": False, "data": None, "error": f"File not found: {rel_path}"}
+
+            content = full_path.read_text(encoding='utf-8')
+            if old_text not in content:
+                return {"ok": False, "data": None, "error": "old_text not found in file."}
+
+            new_content = content.replace(old_text, new_text, 1) # Replace only first occurrence
+            full_path.write_text(new_content, encoding='utf-8')
+
+            return {"ok": True, "data": {"message": f"Successfully edited {rel_path}"}, "error": None}
+        except Exception as e:
+            return {"ok": False, "data": None, "error": str(e)}
+
+
+class DirectoryCreateTool(Tool):
     def __init__(self):
         super().__init__("fs.mkdir")
-        self.schema.register_argument(ToolArgument("path", "Directory to create", True, str))
+        self.schema.register_argument(ToolArgument("path", "Directory path", True, str))
+
+    def initialize(self, env: AgentEnvironment):
+        self.env = env
 
     def description(self) -> str:
-        return "Create a directory (parents ok). Args: path:str."
+        return "`fs.mkdir` - Create a new directory (and parent directories if needed)."
 
     def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            path = self._resolve(input["path"])
-            # Directory creation typically shouldn't be blocked; if you want to protect
-            # whole subtrees, list them explicitly in protected_files as globs.
-            path.mkdir(parents=True, exist_ok=True)
-            return {"ok": True, "data": {"path": str(path)}, "error": None}
+            rel_path = input["path"]
+            working_dir = self.env.get_working_dir()
+            full_path = (working_dir / rel_path).resolve()
+
+            if not str(full_path).startswith(str(working_dir.resolve())):
+                return {"ok": False, "data": None, "error": "Access denied."}
+
+            full_path.mkdir(parents=True, exist_ok=True)
+            return {"ok": True, "data": {"message": f"Created directory {rel_path}"}, "error": None}
         except Exception as e:
             return {"ok": False, "data": None, "error": str(e)}
 
 
-# ---------- fs.rmdir ----------
-class DirRemoveTool(_FSToolBase):
+class DirectoryDeleteTool(Tool):
     def __init__(self):
         super().__init__("fs.rmdir")
-        self.schema.register_argument(ToolArgument("path", "Directory to remove", True, str))
-        self.schema.register_argument(ToolArgument("recursive", "Remove recursively", False, bool))
+        self.schema.register_argument(ToolArgument("path", "Directory path", True, str))
+        self.schema.register_argument(ToolArgument("recursive", "Delete recursively?", False, bool))
+
+    def initialize(self, env: AgentEnvironment):
+        self.env = env
 
     def description(self) -> str:
-        return "Remove a directory. Args: path:str, recursive:bool=False."
+        return "`fs.rmdir` - Remove a directory. Use recursive=True to delete non-empty directories."
 
     def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            path = self._resolve(input["path"])
-            recursive = bool(input.get("recursive", False))
-            if not path.exists() or not path.is_dir():
-                return {"ok": False, "data": None, "error": "Directory not found"}
+            rel_path = input["path"]
+            recursive = input.get("recursive", False)
+            working_dir = self.env.get_working_dir()
+            full_path = (working_dir / rel_path).resolve()
+
+            if not str(full_path).startswith(str(working_dir.resolve())):
+                return {"ok": False, "data": None, "error": "Access denied."}
+
+            if not full_path.exists() or not full_path.is_dir():
+                return {"ok": False, "data": None, "error": "Directory not found."}
+
             if recursive:
-                shutil.rmtree(path)
+                shutil.rmtree(full_path)
             else:
-                try:
-                    path.rmdir()  # only empty dir
-                except OSError:
-                    return {"ok": False, "data": None, "error": "Directory not empty"}
-            return {"ok": True, "data": {"path": str(path)}, "error": None}
+                full_path.rmdir()
+            
+            return {"ok": True, "data": {"message": f"Removed directory {rel_path}"}, "error": None}
         except Exception as e:
             return {"ok": False, "data": None, "error": str(e)}
 
 
-# ---------- fs.ls ----------
-class DirListTool(_FSToolBase):
+class DirectoryListTool(Tool):
     def __init__(self):
         super().__init__("fs.ls")
-        self.schema.register_argument(ToolArgument("path", "Directory to list (default '.')", False, str))
+        self.schema.register_argument(ToolArgument("path", "Directory path", True, str))
+
+    def initialize(self, env: AgentEnvironment):
+        self.env = env
 
     def description(self) -> str:
-        return "List directory contents. Args: path:str='.'. Returns {entries:[{name,type,size}], count:int}."
+        return "`fs.ls` - List all files and folders in a directory."
 
     def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            rel = input.get("path", ".")
-            path = self._resolve(rel)
-            if not path.exists() or not path.is_dir():
-                return {"ok": False, "data": None, "error": "Directory not found"}
+            rel_path = input["path"]
+            working_dir = self.env.get_working_dir()
+            full_path = (working_dir / rel_path).resolve()
 
-            entries: List[Dict[str, Any]] = []
-            for child in sorted(path.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
-                try:
-                    size = 0 if child.is_dir() else int(child.stat().st_size)
-                except Exception:
-                    size = 0
-                entries.append(
-                    {
-                        "name": child.name,
-                        "type": "dir" if child.is_dir() else "file",
-                        "size": size,
-                    }
-                )
-            return {"ok": True, "data": {"entries": entries, "count": len(entries)}, "error": None}
+            if not str(full_path).startswith(str(working_dir.resolve())):
+                return {"ok": False, "data": None, "error": "Access denied."}
+
+            if not full_path.exists() or not full_path.is_dir():
+                return {"ok": False, "data": None, "error": "Directory not found."}
+
+            entries = []
+            for item in full_path.iterdir():
+                entries.append({
+                    "name": item.name,
+                    "type": "dir" if item.is_dir() else "file",
+                    "size": item.stat().st_size if item.is_file() else 0
+                })
+
+            return {"ok": True, "data": {"entries": entries}, "error": None}
         except Exception as e:
             return {"ok": False, "data": None, "error": str(e)}
 
-
-# ---------- fs.tree ----------
-class DirTreeTool(_FSToolBase):
+class DirectoryTreeTool(Tool):
     def __init__(self):
         super().__init__("fs.tree")
-        self.schema.register_argument(ToolArgument("path", "Directory to show as a tree", False, str))
-        self.schema.register_argument(ToolArgument("max_depth", "Max depth to display", False, int))
+        self.schema.register_argument(ToolArgument("path", "Directory path", True, str))
+        self.schema.register_argument(ToolArgument("max_depth", "Max recursion depth", False, int))
+
+    def initialize(self, env: AgentEnvironment):
+        self.env = env
 
     def description(self) -> str:
-        return "Render a simple directory tree. Args: path:str='.', max_depth:int=3. Returns {tree:str}."
+        return "`fs.tree` - List directory structure recursively."
 
     def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            rel = input.get("path", ".")
-            max_depth = int(input.get("max_depth", 3))
-            base = self._resolve(rel)
-            if not base.exists() or not base.is_dir():
-                return {"ok": False, "data": None, "error": "Directory not found"}
+            rel_path = input["path"]
+            max_depth = input.get("max_depth", 2)
+            working_dir = self.env.get_working_dir()
+            full_path = (working_dir / rel_path).resolve()
 
-            lines: List[str] = [base.name]
+            if not str(full_path).startswith(str(working_dir.resolve())):
+                return {"ok": False, "data": None, "error": "Access denied."}
+            
+            if not full_path.exists() or not full_path.is_dir():
+                return {"ok": False, "data": None, "error": "Directory not found."}
 
-            def walk(d: Path, prefix: str = "", depth: int = 0):
-                if depth >= max_depth:
+            tree_lines = []
+            
+            def build_tree(current_path, prefix="", current_depth=0):
+                if current_depth > max_depth:
                     return
-                children = sorted(list(d.iterdir()), key=lambda p: (p.is_file(), p.name.lower()))
-                for i, child in enumerate(children):
-                    is_last = i == len(children) - 1
-                    connector = "└── " if is_last else "├── "
-                    lines.append(prefix + connector + child.name)
-                    if child.is_dir():
-                        new_prefix = prefix + ("    " if is_last else "│   ")
-                        walk(child, new_prefix, depth + 1)
+                
+                # Sort for deterministic output
+                try:
+                    items = sorted([p for p in current_path.iterdir() if not p.name.startswith('.')])
+                except Exception:
+                    return # Permission denied or other error
 
-            walk(base)
-            # ✅ Return list, not string
-            return {"ok": True, "data": {"tree": lines}, "error": None}
+                for i, item in enumerate(items):
+                    is_last = (i == len(items) - 1)
+                    connector = "└── " if is_last else "├── "
+                    tree_lines.append(f"{prefix}{connector}{item.name}")
+                    
+                    if item.is_dir():
+                        extension = "    " if is_last else "│   "
+                        build_tree(item, prefix + extension, current_depth + 1)
+
+            build_tree(full_path)
+            
+            return {"ok": True, "data": {"tree": tree_lines}, "error": None} 
+
         except Exception as e:
             return {"ok": False, "data": None, "error": str(e)}
