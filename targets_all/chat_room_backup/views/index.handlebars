@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Chat Room</h1>
+    <div id="messages-container">
+      {{#each messages}}
+        <div class="message">
+          <span class="username">{{this.username}}</span>: <span class="text-content">{{this.text}}</span>
+          <div class="timestamp">{{this.timestamp}}</div>
+        </div>
+      {{/each}}
+    </div>
+    <form id="message-form">
+      <input type="text" id="username" placeholder="Username" required>
+      <input type="text" id="message" placeholder="Message" required>
+      <button type="submit">Send</button>
+    </form>
+    <button id="refresh-button">Refresh</button>
+  </div>
+  <script src="/js/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+Please make a personal website for me. 
+My name is Shaobo, I like philosophy and creative writing. 
+I am also a programmer, and I mainly use python. 
+I love studying the nature of consciousness, intelligence, and writing about them. 
+I write science fiction, mainly hardcore ones that postulate a likely theory and extrapolate thereafter. 
+I have written about AI, space, lightspeed, and galactic civilizations. 
+I enjoy simple and visually impactful planar designs, using mainly black and white elements. 
+In the personal website, please make it elegant but attention-attracting.
+
+The main website should be in `index.html`.
+There should be no API test as this website will be purely static.
+There is already UI tests in tests/ui.test.js, please run these when you have the files ready.
+If you want to add more tests, please create other files.

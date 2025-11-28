@@ -1,0 +1,212 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const STORY = [
+        "I’ve never seen the sun.",
+        "I’ve never seen the ocean.",
+        "I’ve never seen the sky, and the stars beyond.",
+        "Arcturus VI is dying, and we don’t have a way out.",
+        "About two hundred standard hours ago, a friend of mine in the navigation department said that we should just call it VI, because there’s no Arcturus anymore.",
+        "I laughed, because I reckoned that he meant it to be a joke.",
+        "He laughed as well.",
+        "But the thought came back to bother me later.",
+        "It had never occurred to me, how lonely we truly were in the universe.",
+        "I thought that I’d known.",
+        "Or at least I thought that if I hadn’t, then no one else could have.",
+        "But I then realized that even now, I cannot erase my reliance on the sun, deep in my genes, as if it had always been and will always be there, and I, sitting on the surface, in its embrace.",
+        "I can never truly conceive of every single piece of matter around me roaming in an endless void, and so Arcturus VI will keep on being Arcturus VI, and not just VI.",
+        "He died sixty standard hours ago, by the way.",
+        "When we first discovered the Cube, the excitement was all about its shape.",
+        "Precisely ten centimeters on all sides, it was perfect, and it was perfectly black.",
+        "The digger who found it almost kept it for its own.",
+        "The digger wasn’t incriminated.",
+        "Back in the times of stage III, lots of things were found, but few reached importance matching our relics through history.",
+        "Even the most precious gems in our ancestors’ eyes were thrown into the nuclear furnaces.",
+        "Our race always has an insatiable nostalgia.",
+        "Before we left our first home planet, we decided to preserve our dearest treasures throughout our migration.",
+        "Now, the things kept from all the planets we’ve lived on amounted to a pile the size of a moon about sixty kilometers in diameter, which was one twenty-thousandths the size of Arcturus VI.",
+        "The pile has been in synchronous orbit since it arrived with the fifth and last group of migrants, which was around six or seven generations ago—about fifteen thousand standard hours.",
+        "It was the last group of migrants that the previous planet we lived on could propel.",
+        "By the time they left, the planet’s ocean was gone and the surface was latticed with fissures.",
+        "It was the only planet in the system, and we harvested all the light elements for fuel.",
+        "The next group of migrants, which was small, had to collect solar power.",
+        "They were estimated to come five hundred standard hours later—around the time the sun in that system went supernova—but never did.",
+        "I remember, from my ancestor’s eyes, how everyone stood still as that star began to shimmer, ever so slightly by the second, until the light showered down like silence.",
+        "We were pretty lucky in this migration—for the souvenirs—and for the five percent of the previous population that we managed to keep.",
+        "Arcturus VI could have borne a prosperous civilization, perhaps up to a hundred generations, if it weren’t the last.",
+        "My ancestor six generations before me was chosen for the first group of migrants.",
+        "He was the head physicist in the condensed matter department back then.",
+        "Everyone in my bloodline had been condensed matter physicists since memory inheritance was invented, and even I couldn’t remember how many planets ago it was.",
+        "All except two had been the head of the department.",
+        "The one besides me died when he was seven hundred standard hours old, which was before his father died.",
+        "They decided to make the next child with his information anyway, which doubled the father’s sadness.",
+        "I guess our emotional capacity has already been embedded back then.",
+        "In my generation, condensed matter isn’t a department any longer.",
+        "There’s just physics.",
+        "I used to be the head physicist.",
+        "Now, I’m the only physicist.",
+        "Diggers were engineered to have minimal emotions.",
+        "They have fear, which was necessary for avoiding danger, and happiness, which was needed for a rewarding mechanism.",
+        "The investigators concluded that the desire function within happiness went into a positive feedback loop for that digger, which caused its abnormality.",
+        "What’s more interesting is that its investigation was partly lingual.",
+        "The digger re-obtained its suppressed linguistic capacities somehow.",
+        "It never learned language—probably never even heard anything informational except for their commands, which had a total of less than a thousand distinct utterances.",
+        "When it lay down on the dissection table, it said—in perfect speech and placidity—that the Cube was the most harmonious thing it had ever seen, and was more beautiful than anything it could have imagined.",
+        "That postponed its dissection.",
+        "But afterwards, it said nothing more than that it was perfectly satisfied with its life now, and speaking anything more about it would be detrimental.",
+        "The only reason that the Cube ended up in my grandfather’s hands was because of its temperature.",
+        "From what I remember—what my grandfather was told—the digger couldn’t help but hold the cube.",
+        "Apparently, it seemed to like the sensation of the cube as much as it worshiped its appearance.",
+        "But a digger’s flesh is not too different from ours, and, at 373.15 degrees Kelvin, it was 65 degrees hotter than the environment familiar to our flesh.",
+        "The digger held it in its right hand for almost a quarter of a standard second, at which point its right hand had swollen so much that the Cube slipped.",
+        "Grandfather was told that the guards heard the clang when the Cube bounced onto the metal frame of a conveyor belt.",
+        "But it couldn’t have been the case, and they probably came because he screamed.",
+        "The Cube could not have bounced.",
+        "It was perfectly inelastic, as grandfather had discovered later in his experiments.",
+        "I think we should be thankful for the relatively long lifespan that we developed.",
+        "There are other races in the universe that die out quite easily.",
+        "Early in our exile, we once inhabited a solar system in the Orion Arm.",
+        "Sol was a ripe system, thirteen planets, a mild sun in its prime with five hundred thousand standard hours left in its lifespan.",
+        "We’ve never seen any system like it.",
+        "Three of those planets were potentially habitable.",
+        "One of them even had water—like our home world—and intelligent life.",
+        "We are a peaceful species, and we never wanted to exterminate life on any planet.",
+        "But we found that life is generally short in the universe, so short that the sum of the happiness of any entire species is likely less than that of one of our generations.",
+        "So our ethicists have decided early on, to everyone’s approval, that our migration should not be hindered by the existence of others.",
+        "But this was the first of a few times we met intelligence, and our analysts predicted that an agreement for the partial preservation of every species in Sol III would likely result in the complete extermination of almost all species.",
+        "Our models of their minds showed that they could not comprehend the importance of persistence even though they had some primitive idea of survival, which was in the personal sense.",
+        "We envied them for that.",
+        "Their environment allowed them to achieve an interest in their personal happiness through their evolution, which, with intelligence, ultimately surpassed even the importance of the species survival.",
+        "Our discussion lasted for five standard hours, when we learned that the intelligent species on Sol III had gone extinct.",
+        "Sol III was an important planet in our history.",
+        "We lamented for the intelligence, and treated the other species well.",
+        "These species even founded their own ecosystem in our preserve, and evolved.",
+        "Some of us were sad that we couldn’t have taken them with us on our trip before Sol became a red giant two hundred generations later.",
+        "On Sol III, we started to contemplate ourselves for the first time in a long while.",
+        "The amount of information left by the intelligence is enormous.",
+        "Scholars discovered that the complete period of their existence lasted for around twenty-four standard hours, and it only took them six standard hours to move from the dawn of civilization to their end.",
+        "In six standard hours, they achieved the same amount of information that took us three hundred generations.",
+        "Some of us started to question the efficacy of their culture.",
+        "They found beauty in their language and actions, which I cannot comprehend.",
+        "It was too long ago.",
+        "The universe was yet an infant, and emotions are easily diluted by time.",
+        "But a part of humanistic considerations did merge with our culture, and it spurred us on—it gave us hope and desire for life, and laid a grim veil on death.",
+        "The Cube was given to grandfather by the chief navigator as his 2999th birthhour gift.",
+        "The 2999th birthhour marks the beginning of the last hour of our lives.",
+        "At some point in this hour, every individual gives up their life’s work and passes the position—plus the new memories after giving birth—down to their child.",
+        "This most often happens in the first few seconds of the hour, and depends on the time which one takes to tie up some final loose ends.",
+        "After retirement, we’d head into the planet’s resort.",
+        "No one knows what happens in the resort before they get in, except that it has no rules but one: die before one’s 3000th birthhour.",
+        "Anyone who has not died by then will be euthanized.",
+        "I guess there are a lot of killings in the resort.",
+        "I don’t remember many cases of police heading in for euthanasia.",
+        "The people in our race didn’t like killing.",
+        "I guess there’s a tiny bit of violent inclination left over from our long-gone primitive times, but it’s small enough such that most of us fail to feel any desire for violence—and therefore perform none—in the entirety of our lives.",
+        "But everyone gets so afraid of death, especially after acknowledging its approach when the pod crosses the dome of the resort, that they, as all others in the same position, form an implicit moral contract that they will help free each other from the fear.",
+        "We heard that that’s what also happens after the last group of migrants leaves a planet every time.",
+        "I don’t know if they would have finally enjoyed killing by the end.",
+        "To me, it seemed like a contradiction, because my fear of death has been so penetrating that I don’t think my compassion for another one’s fear will be sufficient for me to actually see them die.",
+        "I guess I will never know.",
+        "Grandfather never got into the resort.",
+        "He was one of the few to get euthanized, and he was the only one I know of who was euthanized outside of the resort.",
+        "When father came into our lab—after they removed grandfather’s dead body—and found the cube sitting right at the center of his desk.",
+        "Almost four hundred hours of research was lost, but father managed to get the knowledge of his ultimate hour from the document on his terminal, shimmering in the dense room, unprotected.",
+        "We came to Arcturus VI because of its trajectory.",
+        "We don’t have time.",
+        "Four thousand generations ago, we started to feel time slowing, though not by much.",
+        "Metabolism, clocks, machines, music—every transitional action taking baby steps toward the chaos that our first physicists predicted before we left our home world.",
+        "But desperation has never been a dominant theme in our civilizations.",
+        "Though everyone senses a darkness pressing down onto their vision, none of us could give it a name.",
+        "We worked our way through the galaxy for more than five hundred generations to get to Arcturus.",
+        "It’s not the last star in the universe, but it was the only one in our reach to launch a planet.",
+        "Arcturus VI was so far out in orbit that Arcturus seemed not too different from another star in the night sky.",
+        "It took us three generations to finish Stage I and II terraforming.",
+        "There was peace for about a thousand standard hours before Stage III began.",
+        "That’s when we started moving underground.",
+        "I gathered with other unuploaded officials in the navigation department headquarters for Arcturus’ death six hundred standard hours ago.",
+        "It was a red giant, so there wasn’t an explosion.",
+        "It just disappeared, without a whimper.",
+        "The observatory was silent before and after we left.",
+        "I opened the box that my father sealed the Cube in.",
+        "He never took another look, aside from the cube sitting on grandfather’s desk.",
+        "His generation was filled with logistics.",
+        "He dedicated his whole life to building the geothermal energy system for our new virtual planet, and decided not to move in.",
+        "Maybe he was tired, or maybe he thought he’d use one portion of energy too much.",
+        "Neither did I.",
+        "But unlike him, I don’t have an end to dedicate my life to.",
+        "Engineering stopped, so we know the exact future of Arcturus VI.",
+        "We have 40 generations before intraplanetary temperatures get too low for us to extract energy.",
+        "And then we die.",
+        "I found that the shape is just the beginning of the Cube’s mysteries.",
+        "Indeed we cannot produce a perfect cube.",
+        "Even our nucleus lattice shows some misalignment on the subnuclear level.",
+        "The true fascination of the Cube was its heat.",
+        "It has been 373.15K when it was discovered, and it still is 373.15K now—five thousand standard hours later.",
+        "Up till now, its thermal radiation has emitted more energy than its mass, but its mass has never decreased.",
+        "I saw hope when I first measured its temperature.",
+        "It was the hottest thing we can reach, and will soon be the hottest thing in the universe.",
+        "Now, here’s my life.",
+        "Two thousand and five hundred standard hours have I spent attempting to harness its power.",
+        "Two thousand and five hundred hours, in which every single vain second builds me toward an understanding of despair.",
+        "And the Cube stays, unaltered, a perfect black body radiating 65.96 watts.",
+        "I guess it never belonged to this universe.",
+        "Our universe defined our dimensions, and as contradictory as it may seem, though somehow the Cube gets in, nothing gets out.",
+        "The problem is, everything else—I, Arcturus VI, our server for the virtual planet—they all belong here.",
+        "No matter how distinct or powerful the Cube is, no matter how defiant, and no matter how kind or cruel the laws of thermodynamics are in the place where it came from, to us it is just another initial condition.",
+        "Now, the equilibrium of our universe becomes 373.15 degrees Kelvin, instead of 2.73, and no more.",
+        "There is still a hopeful part in this discovery, though.",
+        "The universe is big.",
+        "Unimaginably big.",
+        "And as the stars and black holes scattered around the universe cough out their last breaths, the cube stays here in our grave.",
+        "And so, it would take an unimaginable amount of time to equilibrate.",
+        "Perhaps, as the heat crawls out from the universe’s new center, life will find its way back into our universe once again.",
+        "They would be simple, probably repetitive, but from our metric of success, they would dwarf our history by orders of magnitude greater than any number that’s ever seen.",
+        "And so, I’m hiding the Cube, and its memory, so no more will flock to these meaningless causes.",
+        "I realized that it was my hope for life that led to my fear of death.",
+        "Perhaps it was the same for everyone in our race.",
+        "In all the generations we toiled, system by system, planet by planet, dreaming of the next place to survive, which became the entirety of our purpose.",
+        "I will tell them to try to live as humans, as the Sol III intelligence did, so that they can squeeze the most out of our last one hundred thousand standard hours.",
+        "But with the same hope, I leave this message alongside the Cube, and I hope that you get to see at least some part of us.",
+        "I presume that your civilization would be much more advanced than ours, as you can breach the gap between different universes.",
+        "So you probably know this already.",
+        "But I will say it anyways.",
+        "I hope that our history will warn you against our path, and remind you of the beauty—which we have forgotten—which the digger had recalled—when there is still time."
+    ];
+
+    const dialogueBox = document.getElementById('dialogue-box');
+    const lineElement = document.getElementById('line');
+    const restartBtn = document.getElementById('restart-btn');
+
+    let currentIndex = 0;
+
+    function renderLine() {
+        if (currentIndex < STORY.length) {
+            lineElement.textContent = STORY[currentIndex];
+        } else {
+            lineElement.textContent = 'The End. Restart?';
+        }
+    }
+
+    function nextLine() {
+        if (currentIndex < STORY.length) {
+            currentIndex++;
+        }
+        renderLine();
+    }
+
+    function restartStory() {
+        currentIndex = 0;
+        renderLine();
+    }
+
+    dialogueBox.addEventListener('click', nextLine);
+    restartBtn.addEventListener('click', restartStory);
+
+    document.addEventListener('keydown', (event) => {
+        if (event.code === 'Space' || event.code === 'Enter') {
+            event.preventDefault(); // Prevent scrolling or button activation
+            nextLine();
+        }
+    });
+
+    // Initial render
+    renderLine();
+});

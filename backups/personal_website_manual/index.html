@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shaobo — Writer & Programmer</title>
+  <meta name="description" content="Philosophy, creative writing, and Python projects by Shaobo." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header id="nav" class="nav" aria-label="Primary">
+    <div class="container nav__inner">
+      <a href="#hero" class="brand" aria-label="Go to hero">Shaobo</a>
+      <nav class="links" aria-label="Section links">
+        <a href="#about">About</a>
+        <a href="#writing">Writing</a>
+        <a href="#projects">Projects</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section id="hero" class="section hero" aria-labelledby="hero-title">
+      <div class="container">
+        <h1 id="hero-title">Shaobo</h1>
+        <p class="sub">Philosophy • Creative Writing • Python</p>
+        <p class="tagline">Hard-science fiction grounded in plausible theories; inquiries into consciousness and intelligence.</p>
+        <div class="actions">
+          <a href="#writing" class="btn" data-test="view-writing" aria-label="View writing">View Writing</a>
+          <a href="#contact" class="btn btn--ghost" data-test="cta-contact" aria-label="Contact">Contact</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="section" aria-labelledby="about-title">
+      <div class="container">
+        <h2 id="about-title">About</h2>
+        <p>I explore the edges of mind—how consciousness relates to intelligence—and write hard SF that extrapolates from plausible physics and computation. I also build tools and prototypes in Python.</p>
+        <p>My work favors clarity, testability, and clean abstractions; my writing favors disciplined speculation over spectacle.</p>
+        <ul class="bullets">
+          <li>Philosophy of mind &amp; qualia</li>
+          <li>Limits of agency &amp; causality</li>
+          <li>Distributed computation</li>
+          <li>Neuro-symbolic systems</li>
+          <li>Scientific realism in fiction</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="writing" class="section" aria-labelledby="writing-title">
+      <div class="container">
+        <h2 id="writing-title">Selected Writing</h2>
+        <ul class="list">
+          <li class="card">
+            <h3>Event Horizon Ethics</h3>
+            <p class="blurb">On the hard limits of causality and moral agency near black holes.</p>
+            <a href="#" class="excerpt-toggle" aria-expanded="false">Read excerpt</a>
+            <p class="excerpt" hidden>In a spacetime where signals cannot return, intention becomes a boundary condition rather than a cause…</p>
+          </li>
+          <li class="card">
+            <h3>Frames of Minds</h3>
+            <p class="blurb">Emergent qualia in distributed computation across shifting reference frames.</p>
+            <a href="#" class="excerpt-toggle" aria-expanded="false">Read excerpt</a>
+            <p class="excerpt" hidden>When thought is sharded and time is local, experience is a weave of partial truths…</p>
+          </li>
+          <li class="card">
+            <h3>Signal’s Silence</h3>
+            <p class="blurb">A civilization learns that most messages must not arrive.</p>
+            <a href="#" class="excerpt-toggle" aria-expanded="false">Read excerpt</a>
+            <p class="excerpt" hidden>We optimized away noise and discovered we had optimized away ourselves…</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="projects" class="section" aria-labelledby="projects-title">
+      <div class="container">
+        <h2 id="projects-title">Projects (Python)</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Neuro-Symbolic Notes</h3>
+            <p>Lightweight knowledge workbench for structured thinking.</p>
+            <p class="tech">Python · CLI · data</p>
+          </article>
+          <article class="card">
+            <h3>Trajectory Sandbox</h3>
+            <p>Simple numerical integrator for orbital thought experiments.</p>
+            <p class="tech">Python · notebooks</p>
+          </article>
+          <article class="card">
+            <h3>Hypothesis Harness</h3>
+            <p>Tiny test harness patterns for literate experiments.</p>
+            <p class="tech">Python · testing</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="section" aria-labelledby="contact-title">
+      <div class="container">
+        <h2 id="contact-title">Contact</h2>
+        <p>Reach out for collaboration, writing swaps, or research conversations.</p>
+        <form id="contact-form" aria-label="contact form">
+          <label>Name<input name="name" required /></label>
+          <label>Email<input name="email" type="email" required /></label>
+          <label>Message<textarea name="message" rows="4" required></textarea></label>
+          <button type="submit" class="btn">Send</button>
+          <p id="form-note" role="status" class="note" hidden>Thanks — message captured locally.</p>
+        </form>
+        <p class="email">shaobo [at] example [dot] com</p>
+      </div>
+    </section>
+  </main>
+
+  <button class="to-top" data-test="back-to-top" aria-label="Back to top" hidden>Top</button>
+  <script src="script.js"></script>
+</body>
+</html>

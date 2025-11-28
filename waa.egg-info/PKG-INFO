@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: waa
+Version: 0.1.0
+Summary: Web-App Agent - An LLM-powered agent for building web applications
+Requires-Python: >=3.8
+Requires-Dist: google-generativeai>=0.8.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: tqdm>=4.66.0
+Requires-Dist: torch>=2.0.0
+Requires-Dist: setuptools>=69.0.0
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
