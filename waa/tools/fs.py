@@ -280,11 +280,11 @@ class DirectoryTreeTool(Tool):
                 if current_depth > max_depth:
                     return
                 
-                # Sort for deterministic output
                 try:
+                    # Sort for deterministic output
                     items = sorted([p for p in current_path.iterdir() if not p.name.startswith('.')])
                 except Exception:
-                    return # Permission denied or other error
+                    return
 
                 for i, item in enumerate(items):
                     is_last = (i == len(items) - 1)
