@@ -7,8 +7,6 @@ Each message's username, text, and time should be shown.
 After the webpage is rendered, the page should automatically refresh the messages via Restful API calls (specified later) every 30 seconds.
 There should also be a button to refresh the page manually.
 Please be sure to make the website cool looking, clean, and modern.
-The main design elements should be in black and white or other greyscale, while other colors can be used for clarity.
-Please ensure that the webpage is easy to read
 You should remember to create separate `.js` and `.css` files to manage styles and behaviors.
 
 On the server side, there should be a Restful API to get messages (`GET /api/messages`) and one to publish a message (`POST /api/message`).

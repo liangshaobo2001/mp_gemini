@@ -1,7 +1,7 @@
 {
     "llm_type": "gemini",
     "model": "gemini-2.5-pro",
-    "max_turns": 10,
+    "max_turns": 50,
     "protected_files": [
         ".waa/config.json",
         ".waa/instruction.md",

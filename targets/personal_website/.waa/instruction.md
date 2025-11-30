@@ -1,11 +1,11 @@
-Please make a personal website for me. 
-My name is Shaobo, I like philosophy and creative writing. 
-I am also a programmer, and I mainly use python. 
-I love studying the nature of consciousness, intelligence, and writing about them. 
-I write science fiction, mainly hardcore ones that postulate a likely theory and extrapolate thereafter. 
-I have written about AI, space, lightspeed, and galactic civilizations. 
-I enjoy simple and visually impactful planar designs, using mainly black and white elements. 
-In the personal website, please make it elegant but attention-attracting.
+Please make a personal website for me.
+My name is John, I like programming and making games.
+I love programming languages like Rust and TypeScript.
+I love formalisms and programming language theory.
+I am capable of making video games in Unity and Unreal.
+I have made a VR game of Ping Pong purely in C++.
+I enjoy making visually cool looking things like special effects.
+In the personal website, please make it look visually cool and algorithmic using CSS effects.
 
 The main website should be in `index.html`.
 There should be no API test as this website will be purely static.
