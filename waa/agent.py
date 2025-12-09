@@ -17,6 +17,8 @@ from .tools.fs import FileCreateTool, FileDeleteTool, FileReadTool, FileEditTool
 from .tools.todo import TodoAddTool, TodoListTool, TodoCompleteTool, TodoRemoveTool
 from .tools.playwright import PlaywrightInitTool, PlaywrightRunTool
 from .tools.supertest import SupertestInitTool, SupertestRunTool
+from .tools.component import ComponentRegisterTool, ComponentListTool
+from .tools.page import PageRegisterTool, PageListTool
 
 class Agent:
     working_dir: Path
@@ -81,7 +83,9 @@ class Agent:
             DirectoryCreateTool(), DirectoryDeleteTool(), DirectoryListTool(), DirectoryTreeTool(),
             TodoAddTool(), TodoListTool(), TodoCompleteTool(), TodoRemoveTool(),
             PlaywrightInitTool(), PlaywrightRunTool(),
-            SupertestInitTool(), SupertestRunTool()
+            SupertestInitTool(), SupertestRunTool(),
+            ComponentRegisterTool(), ComponentListTool(),
+            PageRegisterTool(), PageListTool()
         ]
 
         allowed_tools = self.env.get_config_value("allowed_tools", None)
@@ -116,6 +120,27 @@ RULES:
 - Use 'npm.init' to setup Node.js projects.
 - Use 'fs.write' to create HTML/CSS/JS files.
 - Always run tests (playwright.run or supertest.run) to verify your work.
+- Use reusable components for UI elements (navbar, footer, etc.).
+  - Store components in 'components/' directory.
+  - Register components using 'component.register'.
+  - Reuse components across pages to avoid duplication.
+  - To include a component in a page, use this client-side JS pattern:
+    1. Create a 'js/loader.js' file with this content:
+       ```javascript
+       document.addEventListener("DOMContentLoaded", function() {{
+           document.querySelectorAll("[data-component]").forEach(el => {{
+               fetch("components/" + el.dataset.component + ".html")
+                   .then(response => response.text())
+                   .then(html => el.innerHTML = html);
+           }});
+       }});
+       ```
+    2. In your HTML files, include `<script src="js/loader.js"></script>`.
+    3. Use `<div data-component="navbar"></div>` to inject 'components/navbar.html'.
+
+- Manage multi-page projects:
+  - Register every new page using 'page.register'.
+  - Use 'page.list' to see existing pages and generate navigation links dynamically if needed.
 """
         system_entry = SystemPrompt(prompt)
         self.history.append(system_entry)
@@ -141,6 +166,13 @@ RULES:
         self.load_instruction()
 
     def query_llm(self, turn: int):
+        # Compress history if too long (simple strategy: keep last 20 entries, summarize older ones)
+        # But keep system prompt (index 0) and user instruction (index 1) intact usually.
+        # For now, let's just summarize tool outputs if history > 50 items
+        if len(self.history) > 50:
+            for i in range(2, len(self.history) - 10): # Keep last 10 fresh
+                self.history[i].summarize()
+
         # Convert history to format expected by LLM
         messages = [{"role": h.role, "content": h.get_content()} for h in self.history]
         
@@ -186,13 +218,15 @@ RULES:
             # Log and Append to History
             self.logger.log_tool_result(tool_name, result.get("data"), result.get("error"))
             
-            result_entry = ToolCallResult(tool_name, args, result.get("data"), result.get("error"))
+            result_entry = ToolCallResult(tool_name, args, result, result.get("error"))
             self.history.append(result_entry)
 
         except Exception as e:
             error_msg = f"Tool execution failed: {str(e)}\n{traceback.format_exc()}"
             self.logger.log_error(error_msg)
-            result_entry = ToolCallResult("unknown", {}, None, error_msg)
+            # Use the tool name if we parsed it, otherwise "unknown"
+            t_name = call_data.get("tool", "unknown") if 'call_data' in locals() else "unknown"
+            result_entry = ToolCallResult(t_name, args if 'args' in locals() else {}, None, error_msg)
             self.history.append(result_entry)
 
     def run(self):

@@ -48,6 +48,38 @@ You will implement the following:
 For Gradescope submission, zip the entire `waa/` directory and `targets/` directory using a script `package_submission.sh` (if you are running on Unix).
 Once you have the related files available (e.g., `report.pdf`, `acknowledgement.md`, `extra_credits.md`, etc.), directly modify the `package_submission.sh` script to include them in the output zip.
 
+## New Features (Final Project Extension)
+
+### Component-Based Architecture
+The agent now supports reusable UI components.
+- **Components Directory**: Components are stored in `components/`.
+- **Registry**: `.waa/components.json` tracks registered components.
+- **Usage**: The agent is instructed to create and reuse components (e.g., navbar, footer) across multiple pages.
+- **Inclusion**: Components are included in pages using a client-side JS loader.
+    - Syntax: `<div data-component="navbar"></div>`
+    - Loader: `js/loader.js` fetches and injects the component HTML.
+- **Tools**:
+    - `component.register(name, path, description)`: Register a new component.
+    - `component.list()`: List available components.
+
+### Page Management
+The agent manages multi-page projects with a registry.
+- **Registry**: `.waa/pages.json` tracks pages, routes, and titles.
+- **Tools**:
+    - `page.register(name, route, title, components)`: Register a new page.
+    - `page.list()`: List all pages.
+
+### Multimodal Wireframe Input
+The agent can now generate initial layouts from wireframes.
+- **Endpoint**: `POST /wireframe` accepts a JSON payload with `message` and `wireframe` data.
+- **Layout Parser**: Converts structured wireframe data into HTML/CSS. Supports sections like `navbar`, `hero`, `grid`, `footer`, `sidebar`, `form`, `gallery`.
+- **Usage**: Send a request with a wireframe definition to generate a skeleton site, then use the chat interface to refine it.
+
+### History Optimization
+For long sessions, the agent automatically compresses older history entries to save context window space while preserving recent interactions and system instructions.
+
+
+
 ### 🤝 Collaboration Policy
 
 You are encouraged to discuss ideas with peers.

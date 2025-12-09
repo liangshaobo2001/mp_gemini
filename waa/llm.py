@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import os
 
 
@@ -11,7 +11,7 @@ class LanguageModel:
 
 
 class GeminiLanguageModel(LanguageModel):
-    def __init__(self, model_name: str = "gemini-2.5-pro", api_key: str | None = None):
+    def __init__(self, model_name: str = "gemini-2.5-pro", api_key: Optional[str] = None):
         super().__init__()
         self.model_name = model_name
         self.temperature = 0.0
@@ -75,7 +75,7 @@ class GeminiLanguageModel(LanguageModel):
 
 
 class MockLanguageModel(LanguageModel):
-    def __init__(self, responses: List[str] | None = None):
+    def __init__(self, responses: Optional[List[str]] = None):
         super().__init__()
         self.responses = responses or [
             '<tool_call>{"tool": "fs.read", "arguments": {"path": "package.json"}}</tool_call>',

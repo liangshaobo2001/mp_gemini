@@ -6,7 +6,8 @@ from flask_cors import CORS
 
 # Import your actual Agent code
 from waa.agent import Agent
-from waa.history import UserInstruction
+from waa.history import UserInstruction, ToolCallResult
+from waa.layout_parser import LayoutParser
 
 app = Flask(__name__)
 CORS(app)  # Enable React to talk to this server
@@ -129,6 +130,83 @@ def chat():
     return jsonify({
         "reply": response_text,
         "files": current_files
+    })
+
+@app.route('/wireframe', methods=['POST'])
+def wireframe():
+    global active_agent
+    
+    # 1. Initialize Agent if not running
+    if not active_agent:
+        if not API_KEY:
+            return jsonify({"reply": "Error: GEMINI_API_KEY not found in environment.", "files": {}}), 500
+        
+        setup_demo_environment()
+        active_agent = Agent(WORKING_DIR, debug=True)
+        active_agent.initialize()
+        print("--- Agent Initialized for Wireframe Session ---")
+
+    data = request.json
+    user_message = data.get('message', 'Generate site from wireframe')
+    wireframe_data = data.get('wireframe', {})
+
+    # 2. Parse Wireframe
+    parser = LayoutParser()
+    generated_files = parser.parse_wireframe(wireframe_data)
+
+    # 3. Write files to workspace
+    for filename, content in generated_files.items():
+        file_path = WORKING_DIR / filename
+        with open(file_path, 'w') as f:
+            f.write(content)
+        
+        # Log tool execution manually to history so agent knows files exist
+        # We simulate a tool call for each file write
+        active_agent.history.append(
+            ToolCallResult(
+                "fs.write", 
+                {"path": filename, "content": "..." }, # Truncate content in history to save tokens
+                f"File {filename} written successfully.", 
+                None
+            )
+        )
+
+    # 4. Inject User Message
+    print(f"\n[User Wireframe]: {user_message}")
+    user_entry = UserInstruction(f"{user_message}\n[System: I have processed the wireframe and created initial files: {', '.join(generated_files.keys())}]")
+    active_agent.history.append(user_entry)
+    active_agent.logger.log_user_instruction(user_message)
+
+    # 5. Return Updated Files (No LLM query needed immediately, or we could trigger one)
+    current_files = get_file_state()
+    
+    # Get registered components and pages
+    components = []
+    pages = []
+    
+    try:
+        comp_reg = WORKING_DIR / ".waa" / "components.json"
+        if comp_reg.exists():
+            with open(comp_reg, 'r') as f:
+                components = list(json.load(f).keys())
+                
+        page_reg = WORKING_DIR / ".waa" / "pages.json"
+        if page_reg.exists():
+            with open(page_reg, 'r') as f:
+                pages = list(json.load(f).keys())
+    except:
+        pass
+
+    return jsonify({
+        "reply": "I have generated the initial layout based on your wireframe. You can now ask me to refine it.",
+        "files": current_files,
+        "components": components,
+        "pages": pages,
+        "next_steps": [
+            "Review the generated layout.",
+            "Ask me to add more pages using 'page.register'.",
+            "Ask me to extract sections into reusable components."
+        ]
     })
 
 if __name__ == '__main__':

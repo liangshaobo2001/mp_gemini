@@ -5,6 +5,7 @@ from datetime import datetime
 class HistoryEntry:
     def __init__(self, role: str):
         self.role = role
+        self.summarized = False
 
     def get_content(self) -> Any:
         raise NotImplementedError("Subclasses must implement this method")
@@ -14,6 +15,9 @@ class HistoryEntry:
             "role": self.role,
             "content": self.get_content(),
         }
+    
+    def summarize(self):
+        self.summarized = True
 
 
 class SystemPrompt(HistoryEntry):
@@ -23,6 +27,9 @@ class SystemPrompt(HistoryEntry):
 
     def get_content(self) -> str:
         return self.prompt
+    
+    def summarize(self):
+        pass # Never summarize system prompt
 
 
 class UserInstruction(HistoryEntry):
@@ -32,6 +39,8 @@ class UserInstruction(HistoryEntry):
         self.timestamp = datetime.now()
 
     def get_content(self) -> str:
+        if self.summarized:
+            return f"[User Instruction Summary]: {self.instruction[:50]}..."
         return self.instruction
 
 
@@ -42,6 +51,8 @@ class LLMResponse(HistoryEntry):
         self.timestamp = datetime.now()
 
     def get_content(self) -> str:
+        if self.summarized:
+            return "[Assistant Response Summary]"
         return self.response
 
     def is_tool_call(self) -> bool:
@@ -70,6 +81,11 @@ class ToolCallResult(HistoryEntry):
         self.timestamp = datetime.now()
 
     def get_content(self) -> Dict[str, Any]:
+        if self.summarized:
+            return {
+                "tool_name": self.tool_name,
+                "summary": "Tool execution completed (details hidden)"
+            }
         return {
             "tool_name": self.tool_name,
             "arguments": self.arguments,

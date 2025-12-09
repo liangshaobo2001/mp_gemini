@@ -52,8 +52,11 @@ This will initialize the server in the background."""
             json.dump(package_json, f)
 
         try:
+            import platform
+            npm_cmd = "npm.cmd" if platform.system() == "Windows" else "npm"
+            
             result = subprocess.run(
-                ["npm", "install"],
+                [npm_cmd, "install"],
                 cwd=self.main_folder,
                 capture_output=True,
                 text=True
@@ -101,8 +104,18 @@ Or when you are done, you can use the `npm_stop` tool to stop the server."""
 
     def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            check_result = subprocess.run(
-                ["pgrep", "-f", "node.*index.js"],
+            import platform
+            if platform.system() == "Windows":
+                # Kill all node processes. This is a bit aggressive but matches pkill behavior
+                subprocess.run(["taskkill", "/F", "/IM", "node.exe"], capture_output=True)
+                return {
+                    "ok": True,
+                    "data": {"message": "Server stopped"},
+                    "error": None
+                }
+
+            result = subprocess.run(
+                ["pkill", "-f", "node.*index.js"],
                 capture_output=True,
                 text=True
             )
@@ -217,6 +230,23 @@ Returns the process IDs if the server is running, or indicates that it's not run
 
     def execute(self, input: Dict[str, Any]) -> Dict[str, Any]:
         try:
+            import platform
+            if platform.system() == "Windows":
+                cmd = ["tasklist", "/FI", "IMAGENAME eq node.exe"]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                # tasklist returns 0 even if no process found, but output contains "No tasks are running"
+                running = "node.exe" in result.stdout
+                
+                return {
+                    "ok": True,
+                    "data": {
+                        "running": running,
+                        "pids": [], # Hard to get PIDs easily from this simple check, but running status is key
+                        "message": "Server is running" if running else "Server is not running"
+                    },
+                    "error": None
+                }
+
             result = subprocess.run(
                 ["pgrep", "-f", "node.*index.js"],
                 capture_output=True,
