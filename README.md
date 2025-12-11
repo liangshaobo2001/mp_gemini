@@ -386,26 +386,4 @@ Tests cover:
 
 -----
 
-## 11\. Demo Script
-
-For an automated demonstration:
-
-```bash
-python demo.py
-```
-
-This simulates:
-
-1.  Project creation
-2.  Base webpage generation
-3.  Component creation
-4.  Page registration
-5.  Wireframe layout synthesis
-
 <!-- end list -->
-
-```
-
-### Next Steps
-Would you like me to generate the `demo.py` script mentioned in the README to ensure your automated demonstration runs correctly?
-```
