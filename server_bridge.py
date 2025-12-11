@@ -1,7 +1,7 @@
 import os
 import json
 from pathlib import Path
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, redirect
 from flask_cors import CORS
 
 # Import your actual Agent code
@@ -9,6 +9,7 @@ from waa.agent import Agent
 from waa.history import UserInstruction, ToolCallResult
 from waa.layout_parser import LayoutParser
 from waa.llm import LLMError
+from waa.ui_builder import UIBuilder
 
 app = Flask(__name__)
 CORS(app)  # Enable React to talk to this server
@@ -18,28 +19,37 @@ CORS(app)  # Enable React to talk to this server
 WORKING_DIR = Path("targets/autoweb_demo")
 API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Global Agent Instance (Single Session)
+# Global Instances
 active_agent = None
+ui_builder = None
 
 def setup_demo_environment():
     """Ensures the demo directory and config exist."""
+    global ui_builder
     if not WORKING_DIR.exists():
         WORKING_DIR.mkdir(parents=True, exist_ok=True)
     
     waa_dir = WORKING_DIR / ".waa"
     waa_dir.mkdir(exist_ok=True)
 
+    # Initialize UI Builder
+    ui_builder = UIBuilder(WORKING_DIR)
+    ui_builder.generate_ui() # Ensure UI exists on startup
+
     # create minimal config if missing
     config_path = waa_dir / "config.json"
     if not config_path.exists():
         config = {
             "llm_type": "gemini",
-            "model": "gemini-2.5-flash",
+            "model": "gemini-2.5-pro",
             "max_turns": 100,
             "allowed_tools": [
                 "fs.write", "fs.read", "fs.edit", "fs.delete", 
                 "fs.mkdir", "fs.ls", "fs.tree", 
-                "npm.init" # Allow npm init for setup
+                "npm.init",
+                "ui.update_config", "ui.rebuild",
+                "page.register", "page.list",
+                "component.register", "component.list"
             ]
         }
         with open(config_path, "w") as f:
@@ -70,6 +80,28 @@ def get_file_state():
                 pass # Skip binary or unreadable files
     return files
 
+@app.route('/ui')
+def serve_ui_index():
+    setup_demo_environment()
+    return send_from_directory(WORKING_DIR / "ui", "index.html")
+
+@app.route('/ui/<path:filename>')
+def serve_ui_files(filename):
+    return send_from_directory(WORKING_DIR / "ui", filename)
+
+@app.route('/ui-config', methods=['GET', 'POST'])
+def handle_ui_config():
+    setup_demo_environment()
+    if request.method == 'GET':
+        ui_builder.load_config() # Refresh from disk
+        return jsonify(ui_builder.config)
+    else:
+        new_config = request.json
+        ui_builder.config = new_config
+        ui_builder._save_config()
+        ui_builder.generate_ui()
+        return jsonify({"success": True, "config": ui_builder.config})
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
@@ -87,6 +119,14 @@ def chat():
 
         data = request.json
         user_message = data.get('message', '')
+        
+        # Handle structured input data
+        extra_data = data.get('data', {})
+        # Filter out message/instruction if they are duplicated in data
+        extra_data = {k: v for k, v in extra_data.items() if k not in ['message', 'instruction']}
+        
+        if extra_data:
+             user_message += f"\n\n[System Note: User provided additional input data via UI: {json.dumps(extra_data, indent=2)}]"
 
         # 2. Inject User Message into History
         print(f"\n[User]: {user_message}")
@@ -260,15 +300,7 @@ def wireframe():
 
 @app.route('/')
 def serve_index():
-    return send_from_directory('frontend', 'index.html')
-
-@app.route('/app.js')
-def serve_app_js():
-    return send_from_directory('frontend', 'app.js')
-
-@app.route('/styles.css')
-def serve_styles_css():
-    return send_from_directory('frontend', 'styles.css')
+    return redirect('/ui')
 
 @app.route('/preview')
 def serve_preview_index():
@@ -276,8 +308,14 @@ def serve_preview_index():
 
 @app.route('/preview/<path:filename>')
 def serve_preview_assets(filename):
-    # Serve css/js/images from the generated site
     return send_from_directory(WORKING_DIR, filename)
+
+@app.route('/<path:filename>')
+def serve_root_assets(filename):
+    # Fallback for assets requested from root (like style.css if base href is not set)
+    if (WORKING_DIR / filename).exists():
+        return send_from_directory(WORKING_DIR, filename)
+    return "File not found", 404
 
 if __name__ == '__main__':
     print(f"AutoWeb Bridge running on http://localhost:5000")

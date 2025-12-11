@@ -19,6 +19,7 @@ from .tools.playwright import PlaywrightInitTool, PlaywrightRunTool
 from .tools.supertest import SupertestInitTool, SupertestRunTool
 from .tools.component import ComponentRegisterTool, ComponentListTool
 from .tools.page import PageRegisterTool, PageListTool
+from .tools.ui import UIUpdateConfigTool, UIRebuildTool
 
 class Agent:
     working_dir: Path
@@ -56,7 +57,7 @@ class Agent:
     def initialize_llm(self):
         llm_type = self.config.get("llm_type", "mock")
         if llm_type == "gemini":
-            model_name = self.config.get("model", "gemini-1.5-flash") 
+            model_name = self.config.get("model", "gemini-2.5-pro") 
             api_key = self.config.get("api_key", os.getenv("GEMINI_API_KEY"))
             self.llm = GeminiLanguageModel(model_name=model_name, api_key=api_key)
         elif llm_type == "mock":
@@ -85,7 +86,8 @@ class Agent:
             PlaywrightInitTool(), PlaywrightRunTool(),
             SupertestInitTool(), SupertestRunTool(),
             ComponentRegisterTool(), ComponentListTool(),
-            PageRegisterTool(), PageListTool()
+            PageRegisterTool(), PageListTool(),
+            UIUpdateConfigTool(), UIRebuildTool()
         ]
 
         allowed_tools = self.env.get_config_value("allowed_tools", None)
@@ -141,6 +143,13 @@ RULES:
 - Manage multi-page projects:
   - Register every new page using 'page.register'.
   - Use 'page.list' to see existing pages and generate navigation links dynamically if needed.
+
+- EVOLUTIONARY UI:
+  - You can modify your own interface!
+  - If the user asks for a new input type (e.g., "add an image upload"), use 'ui.update_config'.
+  - If the user asks to change the UI appearance (colors, fonts), use 'ui.update_config' with the 'style' argument.
+  - The UI will automatically rebuild.
+  - You can inspect the current UI config by reading '.waa/ui_config.json'.
 """
         system_entry = SystemPrompt(prompt)
         self.history.append(system_entry)
