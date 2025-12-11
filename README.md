@@ -35,6 +35,13 @@ If you ask for a new input type (e.g., "I need a video upload field"), the agent
 2.  Rebuild the HTML/JS for the interface.
 3.  Refresh the UI instantly.
 
+**Dual Input System:** To prevent confusion, the interface provides separate inputs for:
+*   **Website Instruction:** For building the target user project.
+*   **UI Evolution Instruction:** For modifying the agent's own interface.
+
+### Safety Reset Mechanism
+If the agent accidentally breaks the UI or removes essential inputs, a **"Reset UI"** button is available to restore the default configuration immediately.
+
 ### Dynamic Styling
 You can control the look and feel of the agent's interface via natural language.
 *   "Make the UI dark mode."
@@ -118,7 +125,12 @@ python -m waa.cli "Create a simple portfolio page"
 
 ## 5. Self-Evolution Guide
 
-Try these prompts to see the agent modify itself:
+The interface now separates concerns to ensure safety and clarity:
+
+*   **Website Instruction Box**: Use this for standard web development tasks (e.g., "Create a contact form").
+*   **UI Evolution Box**: Use this for modifying the tool itself (e.g., "Add a file upload input").
+
+Try these prompts in the **UI Evolution Box** to see the agent modify itself:
 
 **1. Add New Inputs**
 > "I want to upload a logo image. Add a file upload button to this interface."
