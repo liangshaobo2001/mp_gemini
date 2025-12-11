@@ -1,75 +1,50 @@
-# AutoWeb: A Conversational Multimodal Web-Building Agent
+# AutoWeb: Evolutionary Web-Building Agent
 
-This project extends the baseline WAA (Web-App Agent) from the Machine Programming course into a fully interactive, multimodal, component-based web-building system.
-AutoWeb can:
+This project transforms the baseline WAA (Web-App Agent) into a **self-evolutionary system**. 
+AutoWeb is not just a tool for building websites; it is a tool that **builds itself** to better serve the user.
 
-- Build project structures from natural-language instructions
-- Generate and refine websites through conversational iteration
-- Manage reusable components across multiple pages
-- Maintain structured page metadata
-- Convert wireframe-style JSON sketches into HTML/CSS
-- Maintain long-term context with history compression
-
-This repository provides a complete end-to-end toolchain for intelligent web synthesis and modification.
+The agent can:
+- **Modify its own User Interface** based on user requests (e.g., "Add a file upload button", "Change to dark mode").
+- **Build project structures** from natural-language instructions.
+- **Generate and refine websites** through conversational iteration.
+- **Manage reusable components** and multi-page architectures.
+- **Convert wireframe sketches** (JSON) into HTML/CSS.
+- **Maintain long-term context** with history compression.
 
 ---
 
 ## Table of Contents
 
-1. [Features](#1-features)
+1. [Evolutionary Features](#1-evolutionary-features)
 2. [Architecture Overview](#2-architecture-overview)
 3. [Installation](#3-installation)
-4. [How to Run AutoWeb](#4-how-to-run-autoweb)
-   - CLI Mode
-   - Interactive Chat Mode
-   - Wireframe Layout Generation
-5. [Directory Structure](#5-directory-structure)
-6. [Component System](#6-component-system)
-7. [Page System](#7-page-system)
-8. [Wireframe JSON Format](#8-wireframe-json-format)
-9. [History Compression](#9-history-compression)
-10. [Running Tests](#10-running-tests)
-11. [Demo Script](#11-demo-script)
+4. [How to Run](#4-how-to-run)
+5. [Self-Evolution Guide](#5-self-evolution-guide)
+6. [Component & Page System](#6-component--page-system)
+7. [Wireframe JSON Format](#7-wireframe-json-format)
+8. [Running Tests](#8-running-tests)
 
 ---
 
-## 1. Features
+## 1. Evolutionary Features
 
-### Conversational Iteration
-Modify existing webpages through natural language without regenerating from scratch.
-AutoWeb inspects and edits code incrementally via tool calls.
+### Self-Modifying UI
+The agent controls its own frontend configuration (`.waa/ui_config.json`). 
+If you ask for a new input type (e.g., "I need a video upload field"), the agent will:
+1.  Update its internal config.
+2.  Rebuild the HTML/JS for the interface.
+3.  Refresh the UI instantly.
 
-### Component-Based Architecture
-- Components stored in `components/`
-- Registry in `.waa/components.json`
-- Tools: `component.register`, `component.list`
-- Auto-inclusion via Loader.js pattern
+### Dynamic Styling
+You can control the look and feel of the agent's interface via natural language.
+*   "Make the UI dark mode."
+*   "Change the primary button color to purple."
 
-### Multi-Page Website Support
-- Per-page metadata stored in `.waa/pages.json`
-- Tools: `page.register`, `page.list`
-- AutoWeb can build navigable multi-page sites
+### Integrated Preview
+The interface includes a live preview pane that renders the website being built in real-time.
 
-### Multimodal Wireframe Input
-Convert structural JSON wireframes into HTML/CSS through the `/wireframe` REST endpoint.
-
-AutoWeb currently supports common layout primitives:
-- navbar
-- hero section
-- grid layouts
-- text blocks
-- footer
-
-### History Compression
-Older LLM interactions are summarized automatically to prevent context overflow.
-
-### Extensive Test Coverage
-Tests cover:
-- components
-- pages
-- wireframe parsing
-- history compression
-- baseline WAA tools
+### Robust Error Handling
+The system wraps LLM calls in a robust error handling layer that catches API failures (Rate Limits, Auth Errors) and surfaces them as clean JSON responses to the UI, preventing server crashes.
 
 ---
 
@@ -79,25 +54,126 @@ Directory `waa/` contains the AutoWeb engine:
 
 ```text
 waa/
-├── agent.py
-├── history.py
+├── agent.py            # Core agent logic (updated with UI tools)
+├── ui_builder.py       # NEW: Generates the agent's UI from config
 ├── tools/
-│   ├── fs.py
-│   ├── server.py
-│   ├── todo.py
-│   ├── component.py
-│   ├── page.py
+│   ├── ui.py           # NEW: Tools for self-modification
+│   ├── component.py    # Component registry tools
+│   ├── page.py         # Page registry tools
 │   └── ...
-├── layout_parser.py
-├── llm/
-│   ├── base.py
-│   └── gemini.py
-└── server_bridge.py
-````
+├── layout_parser.py    # Wireframe to HTML converter
+└── server_bridge.py    # Flask server for UI and API
+```
 
-**High-level flow:**
+**Evolutionary Loop:**
+1.  User interacts via the web UI (`/ui`).
+2.  Agent receives instruction + structured data.
+3.  Agent decides to use standard tools (`fs.write`) OR evolutionary tools (`ui.update_config`).
+4.  If `ui.update_config` is called, `ui_builder.py` regenerates the frontend.
+5.  Browser refreshes to show the new capabilities.
 
-1.  User sends instruction
+---
+
+## 3. Installation
+
+1.  **Clone the repository**
+2.  **Create a virtual environment**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # or venv\Scripts\activate on Windows
+    ```
+3.  **Install dependencies**
+    ```bash
+    pip install -r requirements.txt
+    ```
+4.  **Set API Key**
+    ```bash
+    export GEMINI_API_KEY="your_key_here"
+    # or on Windows PowerShell:
+    # $env:GEMINI_API_KEY="your_key_here"
+    ```
+
+---
+
+## 4. How to Run
+
+### Start the Evolutionary Server
+This starts the Flask server which hosts both the Agent API and the Self-Modifying UI.
+
+```bash
+python server_bridge.py
+```
+
+- **Access the UI:** Open `http://localhost:5000`
+- **Preview Target Site:** The right-hand pane shows the live site.
+- **API Endpoint:** `POST /chat`
+
+### CLI Mode (Legacy)
+You can still run the agent in CLI mode for headless operation:
+```bash
+python -m waa.cli "Create a simple portfolio page"
+```
+
+---
+
+## 5. Self-Evolution Guide
+
+Try these prompts to see the agent modify itself:
+
+**1. Add New Inputs**
+> "I want to upload a logo image. Add a file upload button to this interface."
+
+**2. Change Aesthetics**
+> "Change the UI background to black and text to white."
+
+**3. Repurpose the Tool**
+> "I want to use this tool for writing blogs. Remove the wireframe input and add a 'Blog Title' field."
+
+---
+
+## 6. Component & Page System
+
+### Components
+- Stored in `components/`
+- Registered in `.waa/components.json`
+- Agent uses `component.register` to save reusable parts (navbars, footers).
+- Client-side `loader.js` injects them dynamically.
+
+### Pages
+- Metadata in `.waa/pages.json`
+- Agent uses `page.register` to track multi-page sites.
+
+---
+
+## 7. Wireframe JSON Format
+
+The agent accepts structural JSON to scaffold sites quickly.
+Paste this into the "Wireframe JSON" input (if enabled):
+
+```json
+{
+  "sections": [
+    { "type": "navbar", "links": ["Home", "About"] },
+    { "type": "hero", "title": "Welcome", "subtitle": "Built by AutoWeb" },
+    { "type": "grid", "items": ["Feature 1", "Feature 2"] }
+  ]
+}
+```
+
+---
+
+## 8. Running Tests
+
+Run the full test suite to verify all capabilities:
+
+```bash
+# Run all tests
+pytest tests/
+
+# Run specific test
+pytest tests/test_component_agent.py
+```
+
 2.  Agent parses intent
 3.  LLM decides whether to call tools
 4.  Filesystem updates
