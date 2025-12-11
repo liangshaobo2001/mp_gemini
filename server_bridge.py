@@ -33,7 +33,7 @@ def setup_demo_environment():
     if not config_path.exists():
         config = {
             "llm_type": "gemini",
-            "model": "gemini-1.5-flash",
+            "model": "gemini-2.5-flash",
             "max_turns": 100,
             "allowed_tools": [
                 "fs.write", "fs.read", "fs.edit", "fs.delete", 
