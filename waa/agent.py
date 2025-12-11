@@ -144,12 +144,15 @@ RULES:
   - Register every new page using 'page.register'.
   - Use 'page.list' to see existing pages and generate navigation links dynamically if needed.
 
+- INSTRUCTION HANDLING:
+  - [WEBSITE INSTRUCTION]: Requests to build/modify the TARGET website. Use 'fs.*', 'component.*', 'page.*'.
+  - [UI EVOLUTION REQUEST]: Requests to modify THIS AGENT'S INTERFACE. Use 'ui.update_config'.
+
 - EVOLUTIONARY UI:
-  - You can modify your own interface!
-  - If the user asks for a new input type (e.g., "add an image upload"), use 'ui.update_config'.
-  - If the user asks to change the UI appearance (colors, fonts), use 'ui.update_config' with the 'style' argument.
-  - The UI will automatically rebuild.
-  - You can inspect the current UI config by reading '.waa/ui_config.json'.
+  - You can modify your own interface using 'ui.update_config'.
+  - Supported changes: adding inputs, changing titles, updating styles (colors, fonts).
+  - The UI will automatically rebuild after config update.
+
 """
         system_entry = SystemPrompt(prompt)
         self.history.append(system_entry)

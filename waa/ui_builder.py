@@ -31,7 +31,8 @@ class UIBuilder:
                     "font_family": "sans-serif"
                 },
                 "inputs": [
-                    {"type": "text", "id": "message", "label": "Instruction", "placeholder": "Describe what you want to build..."},
+                    {"type": "text", "id": "message", "label": "Website Instruction", "placeholder": "Describe what you want to build for the target website..."},
+                    {"type": "text", "id": "ui_instruction", "label": "UI Evolution Instruction", "placeholder": "Describe how you want to modify this tool/interface..."},
                     {"type": "textarea", "id": "wireframe_json", "label": "Wireframe JSON", "placeholder": "Paste wireframe JSON here..."}
                 ]
             }
@@ -51,6 +52,12 @@ class UIBuilder:
     def _save_config(self):
         with open(self.config_path, 'w') as f:
             json.dump(self.config, f, indent=2)
+
+    def reset_config(self):
+        if self.config_path.exists():
+            os.remove(self.config_path)
+        self.load_config()
+        self.generate_ui()
 
     def add_input(self, input_def: Dict[str, Any]):
         """
@@ -140,6 +147,7 @@ class UIBuilder:
                 </div>
                 <div class="controls">
                     <button id="submit-btn">Process Request</button>
+                    <button id="reset-btn" style="margin-top: 0.5rem; background: #6c757d;">Reset UI</button>
                 </div>
                 <div id="status-msg" class="hidden"></div>
             </div>
@@ -219,6 +227,7 @@ h2 {{ font-size: 1.1rem; margin-bottom: 1rem; color: #555; border-bottom: 1px so
 document.addEventListener('DOMContentLoaded', () => {{
     const submitBtn = document.getElementById('submit-btn');
     const refreshBtn = document.getElementById('refresh-btn');
+    const resetBtn = document.getElementById('reset-btn');
     const statusMsg = document.getElementById('status-msg');
     const chatHistory = document.getElementById('chat-history');
     
@@ -226,6 +235,19 @@ document.addEventListener('DOMContentLoaded', () => {{
     refreshBtn.addEventListener('click', () => {{
         document.getElementById('preview-frame').src = '/preview?t=' + Date.now();
     }});
+    
+    if (resetBtn) {{
+        resetBtn.addEventListener('click', async () => {{
+            if (confirm('Are you sure you want to reset the UI to default? This will remove custom inputs.')) {{
+                try {{
+                    await fetch('/ui-reset', {{ method: 'POST' }});
+                    window.location.reload();
+                }} catch (e) {{
+                    alert('Failed to reset UI');
+                }}
+            }}
+        }});
+    }}
 
     async function handleSubmit() {{
         submitBtn.disabled = true;

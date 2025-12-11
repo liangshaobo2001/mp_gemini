@@ -102,6 +102,12 @@ def handle_ui_config():
         ui_builder.generate_ui()
         return jsonify({"success": True, "config": ui_builder.config})
 
+@app.route('/ui-reset', methods=['POST'])
+def handle_ui_reset():
+    setup_demo_environment()
+    ui_builder.reset_config()
+    return jsonify({"success": True, "message": "UI reset to default"})
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
@@ -118,21 +124,33 @@ def chat():
             print("--- Agent Initialized for Web Session ---")
 
         data = request.json
-        user_message = data.get('message', '')
         
         # Handle structured input data
-        extra_data = data.get('data', {})
-        # Filter out message/instruction if they are duplicated in data
-        extra_data = {k: v for k, v in extra_data.items() if k not in ['message', 'instruction']}
+        raw_inputs = data.get('data', {})
         
-        if extra_data:
-             user_message += f"\n\n[System Note: User provided additional input data via UI: {json.dumps(extra_data, indent=2)}]"
+        website_instruction = raw_inputs.get('message', '')
+        ui_instruction = raw_inputs.get('ui_instruction', '')
+        
+        final_prompt = ""
+        if website_instruction:
+            final_prompt += f"[WEBSITE INSTRUCTION]: {website_instruction}\n"
+        if ui_instruction:
+            final_prompt += f"[UI EVOLUTION REQUEST]: {ui_instruction}\n"
+            
+        # Add other inputs (wireframes, etc)
+        other_inputs = {k:v for k,v in raw_inputs.items() if k not in ['message', 'ui_instruction', 'instruction']}
+        if other_inputs:
+            final_prompt += f"\n[ADDITIONAL INPUTS]: {json.dumps(other_inputs, indent=2)}"
+            
+        if not final_prompt:
+             # Fallback if app.js sent something else
+             final_prompt = data.get('message', 'No instruction provided.')
 
         # 2. Inject User Message into History
-        print(f"\n[User]: {user_message}")
-        user_entry = UserInstruction(user_message)
+        print(f"\n[User]: {final_prompt}")
+        user_entry = UserInstruction(final_prompt)
         active_agent.history.append(user_entry)
-        active_agent.logger.log_user_instruction(user_message)
+        active_agent.logger.log_user_instruction(final_prompt)
 
         # 3. Run the Agent Loop (The "Step" Logic)
         # We loop until the agent produces a text response or terminates.
