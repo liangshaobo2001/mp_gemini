@@ -1,6 +1,12 @@
 from typing import List, Dict, Any, Optional
 import os
 
+class LLMError(Exception):
+    def __init__(self, message: str, error_type: str = "LLMError", retry_after: Optional[float] = None):
+        super().__init__(message)
+        self.error_type = error_type
+        self.retry_after = retry_after
+
 
 class LanguageModel:
     def __init__(self):
@@ -71,7 +77,24 @@ class GeminiLanguageModel(LanguageModel):
             response = chat.send_message(prompt)
             return getattr(response, "text", str(response))
         except Exception as e:
-            raise RuntimeError(f"Gemini API error: {e}")
+            # Classify errors
+            error_type = "UnknownLLMError"
+            message = "An unexpected error occurred while calling the LLM. Please check server logs for details."
+            retry_after = None
+            
+            ex_name = type(e).__name__
+            err_str = str(e)
+
+            if "ResourceExhausted" in ex_name or "429" in err_str:
+                error_type = "RateLimit"
+                message = "Gemini rate limit exceeded for the free tier. Please wait ~60 seconds and try again, or reduce the number of requests."
+                # Attempt to extract retry delay if possible, otherwise None
+            
+            elif "PermissionDenied" in ex_name or "403" in err_str:
+                error_type = "AuthError"
+                message = "Gemini API key is invalid, suspended, or unauthorized. Please check your API key and Google AI Studio project settings."
+
+            raise LLMError(message, error_type, retry_after) from e
 
 
 class MockLanguageModel(LanguageModel):

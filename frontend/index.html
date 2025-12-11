@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoWeb GUI</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Panel: Chat -->
+        <div class="panel chat-panel">
+            <h2>Chat</h2>
+            <div id="chat-history" class="chat-history">
+                <div class="message system">Welcome to AutoWeb. How can I help you build your site?</div>
+            </div>
+            <div class="chat-controls">
+                <input type="text" id="chat-input" placeholder="Type instructions here..." autocomplete="off">
+                <button id="chat-send">Send</button>
+            </div>
+            <div id="chat-error" class="error-message hidden"></div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="right-column">
+            <!-- Top Right: Wireframe -->
+            <div class="panel wireframe-panel">
+                <h2>Wireframe Input</h2>
+                <textarea id="wireframe-input" spellcheck="false">{
+  "message": "Generate a homepage from this wireframe.",
+  "wireframe": {
+    "sections": [
+      { "type": "navbar", "links": ["Home", "Features", "Contact"] },
+      { "type": "hero", "title": "AutoWeb", "subtitle": "AI-powered web builder" },
+      { "type": "grid", "items": 3 },
+      { "type": "footer", "text": "© 2025 AutoWeb" }
+    ]
+  }
+}</textarea>
+                <div class="wireframe-controls">
+                    <button id="wireframe-send">Generate from Wireframe</button>
+                </div>
+                <div id="wireframe-status" class="status-message"></div>
+            </div>
+
+            <!-- Bottom Right: Preview -->
+            <div class="panel preview-panel">
+                <div class="preview-header">
+                    <h2>Live Preview</h2>
+                    <button id="preview-refresh">Refresh Preview</button>
+                </div>
+                <div class="iframe-container">
+                    <iframe id="preview-frame" src="/preview" title="Website Preview"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
