@@ -322,15 +322,21 @@ def serve_index():
 
 @app.route('/preview')
 def serve_preview_index():
+    if (WORKING_DIR / "public" / "index.html").exists():
+        return send_from_directory(WORKING_DIR / "public", "index.html")
     return send_from_directory(WORKING_DIR, 'index.html')
 
 @app.route('/preview/<path:filename>')
 def serve_preview_assets(filename):
+    if (WORKING_DIR / "public" / filename).exists():
+        return send_from_directory(WORKING_DIR / "public", filename)
     return send_from_directory(WORKING_DIR, filename)
 
 @app.route('/<path:filename>')
 def serve_root_assets(filename):
     # Fallback for assets requested from root (like style.css if base href is not set)
+    if (WORKING_DIR / "public" / filename).exists():
+        return send_from_directory(WORKING_DIR / "public", filename)
     if (WORKING_DIR / filename).exists():
         return send_from_directory(WORKING_DIR, filename)
     return "File not found", 404
